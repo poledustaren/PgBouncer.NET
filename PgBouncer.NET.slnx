@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PgBouncer.Core/PgBouncer.Core.csproj" />
+    <Project Path="src/PgBouncer.Server/PgBouncer.Server.csproj" />
+    <Project Path="src/PgBouncer.Dashboard.Api/PgBouncer.Dashboard.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PgBouncer.LoadTester/PgBouncer.LoadTester.csproj" />
+  </Folder>
+</Solution>
