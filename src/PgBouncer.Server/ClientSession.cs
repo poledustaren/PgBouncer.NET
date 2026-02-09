@@ -197,24 +197,41 @@ public class ClientSession : IDisposable
         CancellationToken cancellationToken)
     {
         var buffer = new byte[8192];
+        int totalBytes = 0;
 
         try
         {
+            _logger.LogInformation("[{Direction}] Запуск проксирования", direction);
+
             while (!cancellationToken.IsCancellationRequested)
             {
                 var bytesRead = await source.ReadAsync(buffer, cancellationToken);
                 if (bytesRead == 0)
+                {
+                    _logger.LogInformation("[{Direction}] Конец потока (прочитано 0 байт)", direction);
                     break;
+                }
 
                 await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
                 await destination.FlushAsync(cancellationToken);
 
-                _logger.LogTrace("{Direction}: {Bytes} байт", direction, bytesRead);
+                totalBytes += bytesRead;
+                _logger.LogDebug("[{Direction}] {Bytes} байт", direction, bytesRead);
             }
+
+            _logger.LogInformation("[{Direction}] Завершено. Всего: {Total} байт", direction, totalBytes);
+        }
+        catch (IOException ex) when (ex.InnerException is SocketException)
+        {
+            _logger.LogInformation("[{Direction}] Соединение закрыто (всего: {Total} байт)", direction, totalBytes);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("[{Direction}] Отменено (всего: {Total} байт)", direction, totalBytes);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Ошибка проксирования {Direction}", direction);
+            _logger.LogWarning(ex, "[{Direction}] Ошибка: {Message}", direction, ex.Message);
         }
     }
 

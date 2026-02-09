@@ -27,7 +27,7 @@ try
     builder.Services.AddSingleton(config);
 
     // Пул-менеджер (один на всех!) - с логгером!
-    builder.Services.AddSingleton(sp => 
+    builder.Services.AddSingleton(sp =>
     {
         var cfg = sp.GetRequiredService<PgBouncerConfig>();
         var logger = sp.GetRequiredService<ILogger<PoolManager>>();
@@ -37,6 +37,11 @@ try
     // Прокси-сервер
     builder.Services.AddSingleton<ProxyServer>();
     builder.Services.AddHostedService<ProxyServerHostedService>();
+
+    // Controllers и Swagger
+    builder.Services.AddControllers();
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 
     // CORS для дашборда
     builder.Services.AddCors(options =>
@@ -51,37 +56,18 @@ try
 
     var app = builder.Build();
 
+    // Swagger
+    app.UseSwagger();
+    app.UseSwaggerUI();
+
     app.UseCors();
 
     // Статические файлы дашборда
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
-    // API endpoints для статистики
-    app.MapGet("/api/stats", (PoolManager poolManager) =>
-    {
-        var stats = poolManager.GetAllStats();
-        return Results.Ok(stats);
-    });
-
-    app.MapGet("/api/stats/summary", (PoolManager poolManager) =>
-    {
-        var allStats = poolManager.GetAllStats().ToList();
-        return Results.Ok(new
-        {
-            TotalPools = allStats.Count,
-            TotalConnections = allStats.Sum(s => s.TotalConnections),
-            ActiveConnections = allStats.Sum(s => s.ActiveConnections),
-            IdleConnections = allStats.Sum(s => s.IdleConnections),
-            Pools = allStats
-        });
-    });
-
-    app.MapGet("/api/stats/{database}/{username}", (string database, string username, PoolManager poolManager) =>
-    {
-        var stats = poolManager.GetStats(database, username);
-        return stats != null ? Results.Ok(stats) : Results.NotFound();
-    });
+    // API Controllers
+    app.MapControllers();
 
     // Баннер
     Console.WriteLine();

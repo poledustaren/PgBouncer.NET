@@ -12,10 +12,10 @@ public class ConfigurationTests
     {
         // Arrange & Act
         var config = new PgBouncerConfig();
-        
+
         // Assert
-        config.Server.Port.Should().Be(6432);
-        config.Pool.MaxPoolSize.Should().BeGreaterThan(0);
+        config.ListenPort.Should().Be(6432);
+        config.Pool.MaxSize.Should().BeGreaterThan(0);
     }
 
     [Fact]
@@ -23,7 +23,7 @@ public class ConfigurationTests
     {
         // Arrange & Act
         var config = new PgBouncerConfig();
-        
+
         // Assert
         config.Backend.Host.Should().Be("localhost");
         config.Backend.Port.Should().Be(5432);
@@ -34,10 +34,30 @@ public class ConfigurationTests
     {
         // Arrange & Act
         var config = new PoolConfig();
-        
+
         // Assert
-        config.MinPoolSize.Should().BeGreaterThanOrEqualTo(0);
-        config.MaxPoolSize.Should().BeGreaterThan(config.MinPoolSize);
-        config.MaxTotalConnections.Should().BeGreaterThanOrEqualTo(config.MaxPoolSize);
+        config.MinSize.Should().BeGreaterThanOrEqualTo(0);
+        config.MaxSize.Should().BeGreaterThan(config.MinSize);
+        config.MaxTotalConnections.Should().BeGreaterThanOrEqualTo(config.MaxSize);
+    }
+
+    [Fact]
+    public void AuthConfig_ShouldDefaultToPassthrough()
+    {
+        // Arrange & Act
+        var config = new AuthConfig();
+
+        // Assert
+        config.Type.Should().Be("passthrough");
+    }
+
+    [Fact]
+    public void PoolingMode_ShouldDefaultToTransaction()
+    {
+        // Arrange & Act
+        var config = new PoolConfig();
+
+        // Assert
+        config.Mode.Should().Be(PoolingMode.Transaction);
     }
 }

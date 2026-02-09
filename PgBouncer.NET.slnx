@@ -16,5 +16,6 @@
     <File Path="tests/PgBouncer.Tests/obj/project.nuget.cache" />
     <File Path="tests/PgBouncer.Tests/PgBouncer.Tests.csproj" />
     <Project Path="tests/PgBouncer.LoadTester/PgBouncer.LoadTester.csproj" />
+    <Project Path="tests/PgBouncer.Tests/PgBouncer.Tests.csproj" />
   </Folder>
 </Solution>
