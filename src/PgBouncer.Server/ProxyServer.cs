@@ -15,6 +15,7 @@ public class ProxyServer : IDisposable
     private readonly PgBouncerConfig _config;
     private readonly PoolManager _poolManager;
     private readonly ILogger<ProxyServer> _logger;
+    private readonly SemaphoreSlim _backendConnectionLimit;
 
     private Socket? _listenerSocket;
     private CancellationTokenSource? _cts;
@@ -22,20 +23,69 @@ public class ProxyServer : IDisposable
 
     // Статистика активных сессий
     private int _activeSessions;
+    private int _activeBackendConnections;
+    private int _waitingClients;
     private long _totalConnections;
+    private long _totalWaitTimeMs;
+    private long _maxWaitTimeMs;
+    private long _timeoutCount;
     private readonly ConcurrentDictionary<Guid, SessionInfo> _sessions = new();
 
     /// <summary>Количество активных сессий</summary>
     public int ActiveSessions => _activeSessions;
 
+    /// <summary>Активных backend соединений</summary>
+    public int ActiveBackendConnections => _activeBackendConnections;
+
+    /// <summary>Клиентов в очереди ожидания</summary>
+    public int WaitingClients => _waitingClients;
+
+    /// <summary>Максимум backend соединений</summary>
+    public int MaxBackendConnections => _config.Pool.MaxSize;
+
     /// <summary>Всего соединений с момента запуска</summary>
     public long TotalConnections => _totalConnections;
+
+    /// <summary>Среднее время ожидания (мс)</summary>
+    public long AvgWaitTimeMs => _totalConnections > 0 ? _totalWaitTimeMs / _totalConnections : 0;
+
+    /// <summary>Максимальное время ожидания (мс)</summary>
+    public long MaxWaitTimeMs => _maxWaitTimeMs;
+
+    /// <summary>Количество таймаутов</summary>
+    public long TimeoutCount => _timeoutCount;
 
     /// <summary>Информация о текущих сессиях</summary>
     public IReadOnlyDictionary<Guid, SessionInfo> Sessions => _sessions;
 
     /// <summary>Менеджер пулов для статистики</summary>
     public PoolManager PoolManager => _poolManager;
+
+    /// <summary>Семафор для ограничения backend соединений</summary>
+    public SemaphoreSlim BackendConnectionLimit => _backendConnectionLimit;
+
+    /// <summary>Конфигурация</summary>
+    public PgBouncerConfig Config => _config;
+
+    /// <summary>Записать время ожидания</summary>
+    public void RecordWaitTime(long waitTimeMs)
+    {
+        Interlocked.Add(ref _totalWaitTimeMs, waitTimeMs);
+
+        // Атомарно обновляем максимум
+        long current;
+        do
+        {
+            current = _maxWaitTimeMs;
+            if (waitTimeMs <= current) return;
+        } while (Interlocked.CompareExchange(ref _maxWaitTimeMs, waitTimeMs, current) != current);
+    }
+
+    /// <summary>Записать таймаут</summary>
+    public void RecordTimeout()
+    {
+        Interlocked.Increment(ref _timeoutCount);
+    }
 
     public ProxyServer(
         PgBouncerConfig config,
@@ -45,6 +95,10 @@ public class ProxyServer : IDisposable
         _config = config;
         _poolManager = poolManager;
         _logger = logger;
+
+        // Ограничиваем количество backend соединений
+        _backendConnectionLimit = new SemaphoreSlim(config.Pool.MaxSize, config.Pool.MaxSize);
+        _logger.LogInformation("Лимит backend соединений: {MaxSize}", config.Pool.MaxSize);
     }
 
     /// <summary>
@@ -132,7 +186,15 @@ public class ProxyServer : IDisposable
             clientSocket,
             _config,
             _poolManager,
-            _logger);
+            _backendConnectionLimit,
+            _logger,
+            sessionInfo,  // Передаём для обновления статистики
+            () => Interlocked.Increment(ref _activeBackendConnections),
+            () => Interlocked.Decrement(ref _activeBackendConnections),
+            () => Interlocked.Increment(ref _waitingClients),
+            () => Interlocked.Decrement(ref _waitingClients),
+            RecordWaitTime,
+            RecordTimeout);
 
         try
         {
@@ -141,9 +203,11 @@ public class ProxyServer : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка в клиентской сессии");
+            sessionInfo.State = SessionState.Error;
         }
         finally
         {
+            sessionInfo.State = SessionState.Completed;
             _sessions.TryRemove(sessionId, out _);
             Interlocked.Decrement(ref _activeSessions);
         }

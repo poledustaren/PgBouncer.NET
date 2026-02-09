@@ -72,16 +72,30 @@ try
     // API endpoint для статистики сессий (ProxyServer)
     app.MapGet("/api/sessions", (ProxyServer proxyServer) => Results.Ok(new
     {
+        // Основные метрики
         ActiveSessions = proxyServer.ActiveSessions,
+        ActiveBackendConnections = proxyServer.ActiveBackendConnections,
+        MaxBackendConnections = proxyServer.MaxBackendConnections,
+        WaitingClients = proxyServer.WaitingClients,
         TotalConnections = proxyServer.TotalConnections,
+
+        // Метрики времени ожидания
+        AvgWaitTimeMs = proxyServer.AvgWaitTimeMs,
+        MaxWaitTimeMs = proxyServer.MaxWaitTimeMs,
+        TimeoutCount = proxyServer.TimeoutCount,
+        ConnectionTimeout = proxyServer.Config.Pool.ConnectionTimeout,
+
+        // Сессии с детализацией
         Sessions = proxyServer.Sessions.Values.Select(s => new
         {
             s.Id,
             s.RemoteEndPoint,
             s.Database,
             s.Username,
+            State = s.State.ToString(),
+            s.WaitTimeMs,
             s.StartedAt,
-            DurationSeconds = s.Duration.TotalSeconds
+            DurationMs = (long)s.Duration.TotalMilliseconds
         })
     }));
 
