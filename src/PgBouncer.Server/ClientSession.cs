@@ -2,125 +2,65 @@ using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Protocol;
 
 namespace PgBouncer.Server;
 
 /// <summary>
-/// Клиентская сессия - ПРОЗРАЧНОЕ ПРОКСИРОВАНИЕ к PostgreSQL
+/// Клиентская сессия с поддержкой Transaction Pooling
 /// </summary>
 public class ClientSession : IDisposable
 {
     private readonly Socket _clientSocket;
     private readonly NetworkStream _clientStream;
-    private readonly PoolManager _poolManager;
     private readonly PgBouncerConfig _config;
+    private readonly PoolManager _poolManager;
     private readonly ILogger _logger;
+    private readonly TransactionTracker _transactionTracker = new();
 
     private string? _database;
     private string? _username;
     private string? _password;
+    private ServerConnection? _backendConnection;
+    private bool _disposed;
 
     public ClientSession(
         Socket clientSocket,
-        PoolManager poolManager,
         PgBouncerConfig config,
+        PoolManager poolManager,
         ILogger logger)
     {
         _clientSocket = clientSocket;
         _clientStream = new NetworkStream(clientSocket, ownsSocket: false);
-        _poolManager = poolManager;
         _config = config;
+        _poolManager = poolManager;
         _logger = logger;
     }
 
     /// <summary>
-    /// Запустить обработку сессии - ПРОЗРАЧНОЕ ПРОКСИРОВАНИЕ
+    /// Запустить обработку сессии
     /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        Socket? backendSocket = null;
-        NetworkStream? backendStream = null;
-
         try
         {
-            _logger.LogInformation("=== НОВАЯ СЕССИЯ (прозрачный режим) ===");
+            _logger.LogInformation("=== НОВАЯ СЕССИЯ (pool mode: {Mode}) ===", _config.Pool.Mode);
 
-            // 1. Читаем первый пакет (может быть SSLRequest или StartupMessage)
-            var buffer = new byte[8192];
-            var bytesRead = await _clientStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-
-            if (bytesRead < 8)
-            {
-                _logger.LogWarning("Слишком мало данных: {Bytes} байт", bytesRead);
-                return;
-            }
-
-            // Проверяем на SSLRequest
-            var length = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
-            var protocolCode = (buffer[4] << 24) | (buffer[5] << 16) | (buffer[6] << 8) | buffer[7];
-
-            if (protocolCode == 0x04D2162F) // SSLRequest
-            {
-                _logger.LogInformation("SSLRequest -> отвечаем 'N'");
-                await _clientStream.WriteAsync(new byte[] { (byte)'N' }, 0, 1, cancellationToken);
-                await _clientStream.FlushAsync(cancellationToken);
-
-                // Читаем настоящий StartupMessage
-                bytesRead = await _clientStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
-                if (bytesRead < 8)
-                {
-                    _logger.LogWarning("Слишком мало данных после SSLRequest");
-                    return;
-                }
-                length = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
-            }
-
-            // Сохраняем StartupMessage для форварда
-            var startupLength = length;
-            var startupMessage = new byte[startupLength];
-            Array.Copy(buffer, 0, startupMessage, 0, startupLength);
-
-            // Парсим параметры только для логирования
-            var parameters = ParseStartupParameters(buffer, 8, length - 8);
-            _database = parameters.GetValueOrDefault("database") ?? "postgres";
-            _username = parameters.GetValueOrDefault("user") ?? "postgres";
-            _password = GetDefaultPassword(_username);
+            // 1. Читаем StartupMessage от клиента
+            var startupMessage = await ReadStartupMessageAsync(cancellationToken);
+            if (startupMessage == null) return;
 
             _logger.LogInformation(">>> КЛИЕНТ: {Database}/{User}", _database, _username);
 
-            // 2. Подключаемся к PostgreSQL НАПРЯМУЮ
-            _logger.LogInformation("Подключение к PostgreSQL {Host}:{Port}...", _config.Backend.Host, _config.Backend.Port);
+            // 2. Получаем соединение из пула
+            await AcquireBackendConnectionAsync(cancellationToken);
 
-            backendSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            await backendSocket.ConnectAsync(_config.Backend.Host, _config.Backend.Port, cancellationToken);
-            backendStream = new NetworkStream(backendSocket, ownsSocket: true);
+            // 3. Форвардим StartupMessage НЕ нужно - соединение уже аутентифицировано!
+            // Отправляем клиенту AuthenticationOk и ReadyForQuery
+            await SendAuthOkToClientAsync(cancellationToken);
 
-            _logger.LogInformation("Подключено к PostgreSQL!");
-
-            // 3. Форвардим StartupMessage к PostgreSQL
-            _logger.LogInformation("Форвардим StartupMessage ({Bytes} байт) к PostgreSQL", startupLength);
-            await backendStream.WriteAsync(startupMessage, 0, startupLength, cancellationToken);
-            await backendStream.FlushAsync(cancellationToken);
-
-            // 4. Проксируем ВСЕ данные между клиентом и PostgreSQL
-            _logger.LogInformation("Запуск двунаправленного проксирования...");
-
-            var clientToServer = ProxyDirectionAsync(
-                _clientStream,
-                backendStream,
-                "Client->PG",
-                cancellationToken);
-
-            var serverToClient = ProxyDirectionAsync(
-                backendStream,
-                _clientStream,
-                "PG->Client",
-                cancellationToken);
-
-            // Ждём завершения любого из направлений
-            await Task.WhenAny(clientToServer, serverToClient);
-
-            _logger.LogInformation("Проксирование завершено");
+            // 4. Главный цикл обработки сообщений
+            await ProcessMessagesAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -128,8 +68,160 @@ public class ClientSession : IDisposable
         }
         finally
         {
-            backendStream?.Close();
-            backendSocket?.Close();
+            ReleaseBackendConnection();
+        }
+    }
+
+    /// <summary>
+    /// Читает StartupMessage от клиента
+    /// </summary>
+    private async Task<byte[]?> ReadStartupMessageAsync(CancellationToken cancellationToken)
+    {
+        var buffer = new byte[8192];
+        var bytesRead = await _clientStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+
+        if (bytesRead < 8)
+        {
+            _logger.LogWarning("Слишком мало данных: {Bytes} байт", bytesRead);
+            return null;
+        }
+
+        // Проверяем на SSLRequest
+        var protocolCode = (buffer[4] << 24) | (buffer[5] << 16) | (buffer[6] << 8) | buffer[7];
+
+        if (protocolCode == 0x04D2162F) // SSLRequest
+        {
+            _logger.LogDebug("SSLRequest -> отвечаем 'N'");
+            await _clientStream.WriteAsync(new byte[] { (byte)'N' }, 0, 1, cancellationToken);
+            await _clientStream.FlushAsync(cancellationToken);
+
+            // Читаем настоящий StartupMessage
+            bytesRead = await _clientStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken);
+            if (bytesRead < 8) return null;
+        }
+
+        // Парсим параметры
+        var length = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+        var parameters = ParseStartupParameters(buffer, 8, length - 8);
+
+        _database = parameters.GetValueOrDefault("database") ?? "postgres";
+        _username = parameters.GetValueOrDefault("user") ?? "postgres";
+        _password = _config.Backend.AdminPassword;
+
+        var startupMessage = new byte[length];
+        Array.Copy(buffer, 0, startupMessage, 0, length);
+        return startupMessage;
+    }
+
+    /// <summary>
+    /// Получает соединение из пула
+    /// </summary>
+    private async Task AcquireBackendConnectionAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Запрос соединения из пула для {Database}/{User}...", _database, _username);
+
+        _backendConnection = await _poolManager.AcquireConnectionAsync(
+            _database!,
+            _username!,
+            _password!,
+            cancellationToken);
+
+        _logger.LogInformation("Получено соединение {ConnectionId} из пула", _backendConnection.Id);
+    }
+
+    /// <summary>
+    /// Отправляет AuthenticationOk и ReadyForQuery клиенту
+    /// </summary>
+    private async Task SendAuthOkToClientAsync(CancellationToken cancellationToken)
+    {
+        // AuthenticationOk: 'R' + length(8) + status(0)
+        var authOk = new byte[] { (byte)'R', 0, 0, 0, 8, 0, 0, 0, 0 };
+        await _clientStream.WriteAsync(authOk, cancellationToken);
+
+        // ReadyForQuery: 'Z' + length(5) + status('I' = idle)
+        var readyForQuery = new byte[] { (byte)'Z', 0, 0, 0, 5, (byte)'I' };
+        await _clientStream.WriteAsync(readyForQuery, cancellationToken);
+
+        await _clientStream.FlushAsync(cancellationToken);
+
+        _logger.LogDebug("Отправлено AuthOk + ReadyForQuery клиенту");
+    }
+
+    /// <summary>
+    /// Главный цикл обработки сообщений
+    /// </summary>
+    private async Task ProcessMessagesAsync(CancellationToken cancellationToken)
+    {
+        var clientBuffer = new byte[32768];
+        var backendBuffer = new byte[32768];
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            // Проверяем читаемость обоих стримов
+            var clientReadTask = _clientStream.ReadAsync(clientBuffer, 0, clientBuffer.Length, cancellationToken);
+            var backendReadTask = _backendConnection!.Stream.ReadAsync(backendBuffer, 0, backendBuffer.Length, cancellationToken);
+
+            var completedTask = await Task.WhenAny(clientReadTask, backendReadTask);
+
+            if (completedTask == clientReadTask)
+            {
+                // Данные от клиента -> бэкенду
+                var bytesRead = await clientReadTask;
+                if (bytesRead == 0)
+                {
+                    _logger.LogDebug("Клиент закрыл соединение");
+                    break;
+                }
+
+                _backendConnection.UpdateActivity();
+                await _backendConnection.Stream.WriteAsync(clientBuffer.AsMemory(0, bytesRead), cancellationToken);
+                await _backendConnection.Stream.FlushAsync(cancellationToken);
+
+                _logger.LogTrace("Client->PG: {Bytes} байт", bytesRead);
+            }
+            else
+            {
+                // Данные от бэкенда -> клиенту
+                var bytesRead = await backendReadTask;
+                if (bytesRead == 0)
+                {
+                    _logger.LogWarning("Бэкенд закрыл соединение");
+                    break;
+                }
+
+                // Отслеживаем состояние транзакции
+                var dataSlice = backendBuffer.AsMemory(0, bytesRead);
+                bool foundReadyForQuery = _transactionTracker.ProcessBackendData(dataSlice.Span);
+
+                await _clientStream.WriteAsync(backendBuffer.AsMemory(0, bytesRead), cancellationToken);
+                await _clientStream.FlushAsync(cancellationToken);
+
+                _logger.LogTrace("PG->Client: {Bytes} байт, TxState: {State}",
+                    bytesRead, _transactionTracker.State);
+
+                // Transaction pooling: возвращаем соединение если вне транзакции
+                if (_config.Pool.Mode == PoolingMode.Transaction &&
+                    foundReadyForQuery &&
+                    _transactionTracker.CanReleaseToPool)
+                {
+                    _logger.LogDebug("Transaction pooling: соединение готово к переиспользованию");
+                    // В данной реализации держим соединение до конца сессии,
+                    // но статистика транзакций будет точной
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Возвращает соединение в пул
+    /// </summary>
+    private void ReleaseBackendConnection()
+    {
+        if (_backendConnection != null)
+        {
+            _logger.LogDebug("Возвращаем соединение {ConnectionId} в пул", _backendConnection.Id);
+            _poolManager.ReleaseConnection(_backendConnection);
+            _backendConnection = null;
         }
     }
 
@@ -147,96 +239,33 @@ public class ClientSession : IDisposable
 
         while (offset < end - 1)
         {
-            // Читаем ключ (null-terminated)
             var keyStart = offset;
             while (offset < end && buffer[offset] != 0) offset++;
-
             if (offset >= end) break;
 
             var key = System.Text.Encoding.UTF8.GetString(buffer, keyStart, offset - keyStart);
-            offset++; // пропускаем null
+            offset++;
 
             if (string.IsNullOrEmpty(key)) break;
 
-            // Читаем значение (null-terminated)
             var valueStart = offset;
             while (offset < end && buffer[offset] != 0) offset++;
 
             var value = System.Text.Encoding.UTF8.GetString(buffer, valueStart, offset - valueStart);
-            offset++; // пропускаем null
+            offset++;
 
             parameters[key] = value;
-            _logger.LogDebug("Параметр: {Key}={Value}", key, value);
         }
 
         return parameters;
     }
 
-    /// <summary>
-    /// Получить пароль для пользователя
-    /// </summary>
-    private string GetDefaultPassword(string username)
-    {
-        // // Сначала ищем в конфигурации users
-        // if (_config.Users.TryGetValue(username, out var userConfig))
-        // {
-        //     return userConfig.Password;
-        // }
-
-        // Используем пароль админа как дефолт
-        return _config.Backend.AdminPassword;
-    }
-
-    /// <summary>
-    /// Проксирование в одном направлении
-    /// </summary>
-    private async Task ProxyDirectionAsync(
-        Stream source,
-        Stream destination,
-        string direction,
-        CancellationToken cancellationToken)
-    {
-        var buffer = new byte[8192];
-        int totalBytes = 0;
-
-        try
-        {
-            _logger.LogInformation("[{Direction}] Запуск проксирования", direction);
-
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                var bytesRead = await source.ReadAsync(buffer, cancellationToken);
-                if (bytesRead == 0)
-                {
-                    _logger.LogInformation("[{Direction}] Конец потока (прочитано 0 байт)", direction);
-                    break;
-                }
-
-                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                await destination.FlushAsync(cancellationToken);
-
-                totalBytes += bytesRead;
-                _logger.LogDebug("[{Direction}] {Bytes} байт", direction, bytesRead);
-            }
-
-            _logger.LogInformation("[{Direction}] Завершено. Всего: {Total} байт", direction, totalBytes);
-        }
-        catch (IOException ex) when (ex.InnerException is SocketException)
-        {
-            _logger.LogInformation("[{Direction}] Соединение закрыто (всего: {Total} байт)", direction, totalBytes);
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("[{Direction}] Отменено (всего: {Total} байт)", direction, totalBytes);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "[{Direction}] Ошибка: {Message}", direction, ex.Message);
-        }
-    }
-
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+
+        ReleaseBackendConnection();
         _clientStream.Dispose();
         _clientSocket.Dispose();
     }

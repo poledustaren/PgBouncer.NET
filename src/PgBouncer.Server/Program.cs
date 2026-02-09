@@ -69,6 +69,22 @@ try
     // API Controllers
     app.MapControllers();
 
+    // API endpoint для статистики сессий (ProxyServer)
+    app.MapGet("/api/sessions", (ProxyServer proxyServer) => Results.Ok(new
+    {
+        ActiveSessions = proxyServer.ActiveSessions,
+        TotalConnections = proxyServer.TotalConnections,
+        Sessions = proxyServer.Sessions.Values.Select(s => new
+        {
+            s.Id,
+            s.RemoteEndPoint,
+            s.Database,
+            s.Username,
+            s.StartedAt,
+            DurationSeconds = s.Duration.TotalSeconds
+        })
+    }));
+
     // Баннер
     Console.WriteLine();
     Console.WriteLine("╔══════════════════════════════════════════════════════════╗");

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
@@ -18,6 +19,23 @@ public class ProxyServer : IDisposable
     private Socket? _listenerSocket;
     private CancellationTokenSource? _cts;
     private Task? _acceptTask;
+
+    // Статистика активных сессий
+    private int _activeSessions;
+    private long _totalConnections;
+    private readonly ConcurrentDictionary<Guid, SessionInfo> _sessions = new();
+
+    /// <summary>Количество активных сессий</summary>
+    public int ActiveSessions => _activeSessions;
+
+    /// <summary>Всего соединений с момента запуска</summary>
+    public long TotalConnections => _totalConnections;
+
+    /// <summary>Информация о текущих сессиях</summary>
+    public IReadOnlyDictionary<Guid, SessionInfo> Sessions => _sessions;
+
+    /// <summary>Менеджер пулов для статистики</summary>
+    public PoolManager PoolManager => _poolManager;
 
     public ProxyServer(
         PgBouncerConfig config,
@@ -98,10 +116,22 @@ public class ProxyServer : IDisposable
     /// </summary>
     private async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
+        var sessionId = Guid.NewGuid();
+        var sessionInfo = new SessionInfo
+        {
+            Id = sessionId,
+            StartedAt = DateTime.UtcNow,
+            RemoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown"
+        };
+
+        _sessions[sessionId] = sessionInfo;
+        Interlocked.Increment(ref _activeSessions);
+        Interlocked.Increment(ref _totalConnections);
+
         using var session = new ClientSession(
             clientSocket,
-            _poolManager,
             _config,
+            _poolManager,
             _logger);
 
         try
@@ -111,6 +141,11 @@ public class ProxyServer : IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ошибка в клиентской сессии");
+        }
+        finally
+        {
+            _sessions.TryRemove(sessionId, out _);
+            Interlocked.Decrement(ref _activeSessions);
         }
     }
 

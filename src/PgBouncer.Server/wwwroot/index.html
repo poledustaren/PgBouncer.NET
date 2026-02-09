@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -77,8 +78,17 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; box-shadow: 0 0 10px #00ff88; }
-            50% { opacity: 0.5; box-shadow: 0 0 20px #00ff88; }
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 10px #00ff88;
+            }
+
+            50% {
+                opacity: 0.5;
+                box-shadow: 0 0 20px #00ff88;
+            }
         }
 
         .stats-grid {
@@ -251,19 +261,21 @@
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .pools-table {
                 font-size: 0.9em;
             }
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
             <div class="logo">
                 <svg viewBox="0 0 24 24">
-                    <path d="M12,3C10.34,3 9,4.34 9,6V6.29C6.44,6.92 4.69,9.14 4.69,11.69C4.69,14.77 7.21,17.29 10.29,17.29H13.71C16.79,17.29 19.31,14.77 19.31,11.69C19.31,9.14 17.56,6.92 15,6.29V6C15,4.34 13.66,3 12,3M12,5C12.55,5 13,5.45 13,6V6.09C12.67,6.03 12.34,6 12,6C11.66,6 11.33,6.03 11,6.09V6C11,5.45 11.45,5 12,5M10.29,8H13.71C15.68,8 17.31,9.63 17.31,11.69C17.31,13.67 15.68,15.29 13.71,15.29H10.29C8.32,15.29 6.69,13.67 6.69,11.69C6.69,9.63 8.32,8 10.29,8M9,19V21H15V19H9Z"/>
+                    <path
+                        d="M12,3C10.34,3 9,4.34 9,6V6.29C6.44,6.92 4.69,9.14 4.69,11.69C4.69,14.77 7.21,17.29 10.29,17.29H13.71C16.79,17.29 19.31,14.77 19.31,11.69C19.31,9.14 17.56,6.92 15,6.29V6C15,4.34 13.66,3 12,3M12,5C12.55,5 13,5.45 13,6V6.09C12.67,6.03 12.34,6 12,6C11.66,6 11.33,6.03 11,6.09V6C11,5.45 11.45,5 12,5M10.29,8H13.71C15.68,8 17.31,9.63 17.31,11.69C17.31,13.67 15.68,15.29 13.71,15.29H10.29C8.32,15.29 6.69,13.67 6.69,11.69C6.69,9.63 8.32,8 10.29,8M9,19V21H15V19H9Z" />
                 </svg>
                 <h1>PgBouncer<span>.NET</span></h1>
             </div>
@@ -325,16 +337,16 @@
     </div>
 
     <script>
-        const API_BASE = 'http://localhost:5080';
+        const API_BASE = '';
         let isConnected = false;
 
         async function fetchStats() {
             try {
-                const response = await fetch(`${API_BASE}/api/stats`);
+                const response = await fetch(`${API_BASE}/api/sessions`);
                 if (!response.ok) throw new Error('API недоступен');
-                
-                const pools = await response.json();
-                updateUI(pools);
+
+                const data = await response.json();
+                updateUI(data);
                 setConnected(true);
                 clearError();
             } catch (error) {
@@ -344,53 +356,43 @@
             }
         }
 
-        function updateUI(pools) {
-            // Подсчёт итогов
-            let totalPools = pools.length;
-            let totalConnections = 0;
-            let activeConnections = 0;
-            let idleConnections = 0;
-
-            pools.forEach(pool => {
-                totalConnections += pool.totalConnections || 0;
-                activeConnections += pool.activeConnections || 0;
-                idleConnections += pool.idleConnections || 0;
-            });
-
+        function updateUI(data) {
             // Обновление карточек
-            document.getElementById('totalPools').textContent = totalPools;
-            document.getElementById('totalConnections').textContent = totalConnections;
-            document.getElementById('activeConnections').textContent = activeConnections;
-            document.getElementById('idleConnections').textContent = idleConnections;
+            document.getElementById('totalPools').textContent = '1'; // Прозрачный режим = 1 пул
+            document.getElementById('totalConnections').textContent = data.totalConnections || 0;
+            document.getElementById('activeConnections').textContent = data.activeSessions || 0;
+            document.getElementById('idleConnections').textContent = 0; // В прозрачном режиме все активные
 
-            const activePercent = totalConnections > 0 
-                ? Math.round((activeConnections / totalConnections) * 100) 
+            const activePercent = data.totalConnections > 0
+                ? Math.round((data.activeSessions / data.totalConnections) * 100)
                 : 0;
             document.getElementById('activePercent').textContent = `${activePercent}%`;
 
-            // Обновление таблицы
+            // Обновление таблицы - показываем сессии
             const tbody = document.getElementById('poolsTableBody');
-            
-            if (pools.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="no-data">Нет активных пулов</td></tr>';
+            const sessions = data.sessions || [];
+
+            if (sessions.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-data">Нет активных сессий</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = pools.map(pool => {
-                const usage = pool.maxConnections > 0 
-                    ? Math.round((pool.totalConnections / pool.maxConnections) * 100) 
-                    : 0;
-                
+            tbody.innerHTML = sessions.map(session => {
+                const duration = Math.round(session.durationSeconds || 0);
+                const durationStr = duration < 60
+                    ? `${duration}с`
+                    : `${Math.floor(duration / 60)}м ${duration % 60}с`;
+
                 return `
                     <tr>
-                        <td><strong>${pool.database || 'N/A'}</strong></td>
-                        <td>${pool.username || 'N/A'}</td>
-                        <td><span class="badge badge-active">${pool.activeConnections || 0}</span></td>
-                        <td><span class="badge badge-idle">${pool.idleConnections || 0}</span></td>
-                        <td>${pool.totalConnections || 0} / ${pool.maxConnections || 0}</td>
+                        <td><strong>${session.database || 'N/A'}</strong></td>
+                        <td>${session.username || 'N/A'}</td>
+                        <td><span class="badge badge-active">1</span></td>
+                        <td>${session.remoteEndPoint || 'N/A'}</td>
+                        <td>${durationStr}</td>
                         <td>
                             <div class="progress-bar">
-                                <div class="progress-bar-fill" style="width: ${usage}%"></div>
+                                <div class="progress-bar-fill" style="width: 100%"></div>
                             </div>
                         </td>
                     </tr>
@@ -402,7 +404,7 @@
             isConnected = connected;
             const dot = document.getElementById('statusDot');
             const text = document.getElementById('statusText');
-            
+
             if (connected) {
                 dot.style.background = '#00ff88';
                 dot.style.animation = 'pulse 2s infinite';
@@ -427,9 +429,10 @@
 
         // Инициализация
         fetchStats();
-        
-        // Автообновление каждые 5 секунд
-        setInterval(fetchStats, 5000);
+
+        // Автообновление каждые 2 секунды
+        setInterval(fetchStats, 2000);
     </script>
 </body>
+
 </html>

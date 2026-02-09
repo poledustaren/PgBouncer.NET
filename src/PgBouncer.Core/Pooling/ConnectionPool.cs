@@ -20,8 +20,11 @@ public class ConnectionPool : IDisposable
     private readonly ConcurrentBag<ServerConnection> _availableConnections = new();
     private readonly ConcurrentDictionary<Guid, ServerConnection> _activeConnections = new();
     private readonly SemaphoreSlim _connectionSemaphore;
+    private readonly Timer? _idleCleanupTimer;
 
     private int _totalConnections;
+    private long _totalAcquired;
+    private long _totalReleased;
     private bool _disposed;
 
     public ConnectionPool(
@@ -40,6 +43,16 @@ public class ConnectionPool : IDisposable
         _logger = logger;
 
         _connectionSemaphore = new SemaphoreSlim(poolConfig.MaxSize, poolConfig.MaxSize);
+
+        // Запускаем таймер для очистки idle соединений
+        if (poolConfig.IdleTimeout > 0)
+        {
+            _idleCleanupTimer = new Timer(
+                CleanupIdleConnections,
+                null,
+                TimeSpan.FromSeconds(30),
+                TimeSpan.FromSeconds(30));
+        }
     }
 
     /// <summary>
@@ -139,6 +152,52 @@ public class ConnectionPool : IDisposable
     }
 
     /// <summary>
+    /// Очистка idle соединений (вызывается таймером)
+    /// </summary>
+    private void CleanupIdleConnections(object? state)
+    {
+        if (_disposed) return;
+
+        var idleTimeout = _poolConfig.IdleTimeout;
+        var toRemove = new List<ServerConnection>();
+
+        // Собираем idle соединения из доступных
+        var tempBag = new ConcurrentBag<ServerConnection>();
+        while (_availableConnections.TryTake(out var conn))
+        {
+            if (conn.IsIdle(idleTimeout) || !conn.IsHealthy)
+            {
+                toRemove.Add(conn);
+            }
+            else
+            {
+                tempBag.Add(conn);
+            }
+        }
+
+        // Возвращаем не-idle обратно
+        while (tempBag.TryTake(out var conn))
+        {
+            _availableConnections.Add(conn);
+        }
+
+        // Закрываем idle соединения
+        foreach (var conn in toRemove)
+        {
+            conn.DisposeAsync().AsTask().Wait();
+            Interlocked.Decrement(ref _totalConnections);
+            _logger?.LogInformation("Закрыто idle соединение {Id} для {Database}/{User}",
+                conn.Id, _database, _username);
+        }
+
+        if (toRemove.Count > 0)
+        {
+            _logger?.LogDebug("Очищено {Count} idle соединений, осталось: {Total}",
+                toRemove.Count, _totalConnections);
+        }
+    }
+
+    /// <summary>
     /// Статистика пула
     /// </summary>
     public PoolStats GetStats()
@@ -219,6 +278,13 @@ public class ServerConnection : IAsyncDisposable
     {
         _lastActivity = DateTime.UtcNow;
     }
+
+    /// <summary>Время последней активности</summary>
+    public DateTime LastActivity => _lastActivity;
+
+    /// <summary>Проверяет истек ли idle timeout</summary>
+    public bool IsIdle(int idleTimeoutSeconds) =>
+        (DateTime.UtcNow - _lastActivity).TotalSeconds > idleTimeoutSeconds;
 
     public async ValueTask DisposeAsync()
     {
