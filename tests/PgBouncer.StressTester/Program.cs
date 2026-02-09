@@ -29,8 +29,8 @@ class Program
 
     static readonly int ProxyPort = 6432;
     static readonly string ProxyHost = "localhost";
-    static readonly string Username = "super_user";
-    static readonly string Password = "super_user";
+    static readonly string Username = "postgres";
+    static readonly string Password = "123";
 
     // Настройки проектов
     static readonly VirtualProject[] Projects =
@@ -153,15 +153,16 @@ class Program
 
                         if (queryType < 60) // 60% - простые SELECT
                         {
-                            sql = "SELECT 1, pg_sleep(0.01)";
+                            sql = "SELECT 1";
                         }
                         else if (queryType < 85) // 25% - SELECT с небольшой нагрузкой
                         {
-                            sql = "SELECT generate_series(1, 100), pg_sleep(0.05)";
+                            sql = "SELECT generate_series(1, 100)";
                         }
-                        else // 15% - тяжёлые запросы
+                        else // 15% - тяжёлые запросы (используем pg_sleep с параметром)
                         {
-                            sql = $"SELECT generate_series(1, 1000), pg_sleep({project.AvgQueryTimeMs / 1000.0:F3})";
+                            var sleepSeconds = (project.AvgQueryTimeMs / 1000.0).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            sql = $"SELECT pg_sleep({sleepSeconds})";
                         }
 
                         await using var cmd = new NpgsqlCommand(sql, conn);
