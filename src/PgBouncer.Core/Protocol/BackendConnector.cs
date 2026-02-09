@@ -36,7 +36,7 @@ public class BackendConnector
         try
         {
             // Подключаемся к PostgreSQL с таймаутом
-            _logger?.LogDebug("Подключаемся к PostgreSQL {Host}:{Port}...", _config.Host, _config.Port);
+            _logger?.LogInformation("Подключаемся к PostgreSQL {Host}:{Port}...", _config.Host, _config.Port);
             
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(10)); // 10 секунд на подключение
@@ -54,20 +54,20 @@ public class BackendConnector
             stream.ReadTimeout = 10000;
             stream.WriteTimeout = 10000;
 
-            _logger?.LogDebug("Подключено к PostgreSQL {Host}:{Port}", _config.Host, _config.Port);
+            _logger?.LogInformation("Подключено к PostgreSQL {Host}:{Port}", _config.Host, _config.Port);
 
             // Отправляем StartupMessage
             var startupMessage = PostgresAuth.CreateStartupMessage(database, username);
             await stream.WriteAsync(startupMessage, cancellationToken);
             await stream.FlushAsync(cancellationToken);
 
-            _logger?.LogDebug("Отправлен StartupMessage для {Database}/{Username}", database, username);
+            _logger?.LogInformation("Отправлен StartupMessage для {Database}/{Username}", database, username);
 
             // Читаем ответ сервера
-            _logger?.LogDebug("Ожидание ответа от PostgreSQL...");
+            _logger?.LogInformation("Ожидание ответа от PostgreSQL...");
             var buffer = new byte[1024];
             var bytesRead = await stream.ReadAsync(buffer, cancellationToken);
-            _logger?.LogDebug("Получено {BytesRead} байт от PostgreSQL", bytesRead);
+            _logger?.LogInformation("Получено {BytesRead} байт от PostgreSQL", bytesRead);
 
             if (bytesRead < 5)
                 throw new InvalidOperationException("Invalid response from PostgreSQL");
@@ -78,7 +78,7 @@ public class BackendConnector
 
             if (messageType == 'R') // AuthenticationRequest
             {
-                _logger?.LogDebug("Получен AuthenticationRequest, обрабатываем...");
+                _logger?.LogInformation("Получен AuthenticationRequest, обрабатываем...");
                 await HandleAuthenticationAsync(stream, buffer, bytesRead, username, password, cancellationToken);
             }
             else if (messageType == 'E') // ErrorResponse
@@ -116,14 +116,14 @@ public class BackendConnector
         // Первые 5 байт: тип (1) + длина (4)
         var authType = (AuthenticationType)BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(5));
 
-        _logger?.LogDebug("Получен запрос аутентификации: {AuthType}", authType);
+        _logger?.LogInformation("Получен запрос аутентификации: {AuthType}", authType);
 
         switch (authType)
         {
             case AuthenticationType.Ok:
-                _logger?.LogDebug("AuthenticationType.Ok (trust), ожидание ReadyForQuery...");
+                _logger?.LogInformation("AuthenticationType.Ok (trust), ожидание ReadyForQuery...");
                 await WaitForReadyForQueryAsync(stream, cancellationToken);
-                _logger?.LogDebug("ReadyForQuery получен после trust auth");
+                _logger?.LogInformation("ReadyForQuery получен после trust auth");
                 break;
 
             case AuthenticationType.CleartextPassword:
@@ -145,7 +145,7 @@ public class BackendConnector
                 await stream.WriteAsync(md5PasswordMsg, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
 
-                _logger?.LogDebug("Отправлен MD5 пароль");
+                _logger?.LogInformation("Отправлен MD5 пароль");
                 await HandleAuthResponseAsync(stream, username, password, cancellationToken);
                 break;
 
@@ -203,7 +203,7 @@ public class BackendConnector
                     var authType = (AuthenticationType)BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(bufferOffset + 5));
                     if (authType == AuthenticationType.Ok)
                     {
-                        _logger?.LogDebug("Аутентификация успешна");
+                        _logger?.LogInformation("Аутентификация успешна");
                     }
                     else
                     {
@@ -212,15 +212,15 @@ public class BackendConnector
                     break;
 
                 case 'S': // ParameterStatus
-                    _logger?.LogDebug("Получен ParameterStatus");
+                    _logger?.LogInformation("Получен ParameterStatus");
                     break;
 
                 case 'K': // BackendKeyData
-                    _logger?.LogDebug("Получен BackendKeyData");
+                    _logger?.LogInformation("Получен BackendKeyData");
                     break;
 
                 case 'Z': // ReadyForQuery
-                    _logger?.LogDebug("Сервер готов к запросам (ReadyForQuery)");
+                    _logger?.LogInformation("Сервер готов к запросам (ReadyForQuery)");
                     return;
 
                 case 'E': // ErrorResponse
@@ -272,7 +272,7 @@ public class BackendConnector
 
             if (messageType == 'Z') // ReadyForQuery
             {
-                _logger?.LogDebug("Получен ReadyForQuery после trust auth");
+                _logger?.LogInformation("Получен ReadyForQuery после trust auth");
                 return;
             }
 

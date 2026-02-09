@@ -26,8 +26,13 @@ try
     var config = builder.Configuration.Get<PgBouncerConfig>() ?? new PgBouncerConfig();
     builder.Services.AddSingleton(config);
 
-    // Пул-менеджер (один на всех!)
-    builder.Services.AddSingleton<PoolManager>();
+    // Пул-менеджер (один на всех!) - с логгером!
+    builder.Services.AddSingleton(sp => 
+    {
+        var cfg = sp.GetRequiredService<PgBouncerConfig>();
+        var logger = sp.GetRequiredService<ILogger<PoolManager>>();
+        return new PoolManager(cfg, logger);
+    });
 
     // Прокси-сервер
     builder.Services.AddSingleton<ProxyServer>();

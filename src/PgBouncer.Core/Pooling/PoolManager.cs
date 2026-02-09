@@ -39,18 +39,18 @@ public class PoolManager : IDisposable
         _logger?.LogInformation(">>> Запрос соединения для {Database}/{User}, текущий счётчик: {Total}", database, username, _totalConnections);
         
         // Проверяем глобальный лимит
-        _logger?.LogDebug("Ожидание семафора...");
+        _logger?.LogInformation("Ожидание семафора...");
         await _totalConnectionsSemaphore.WaitAsync(cancellationToken);
-        _logger?.LogDebug("Семафор получен");
+        _logger?.LogInformation("Семафор получен");
 
         try
         {
             var poolKey = GetPoolKey(database, username);
-            _logger?.LogDebug("Ключ пула: {PoolKey}", poolKey);
+            _logger?.LogInformation("Ключ пула: {PoolKey}", poolKey);
             
             var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
 
-            _logger?.LogDebug("Запрос соединения из пула...");
+            _logger?.LogInformation("Запрос соединения из пула...");
             var connection = await pool.AcquireAsync(cancellationToken);
             Interlocked.Increment(ref _totalConnections);
             

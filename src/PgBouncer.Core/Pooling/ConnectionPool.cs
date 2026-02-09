@@ -127,7 +127,7 @@ public class ConnectionPool : IDisposable
             // Создаем соединение с полученным сокетом и стримом
             var connection = new ServerConnection(socket, stream, _database, _username);
 
-            _logger?.LogDebug("Соединение {Id} успешно аутентифицировано", connection.Id);
+            _logger?.LogInformation("Соединение {Id} успешно аутентифицировано", connection.Id);
 
             return connection;
         }

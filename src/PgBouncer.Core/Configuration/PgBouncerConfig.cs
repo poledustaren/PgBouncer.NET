@@ -24,7 +24,7 @@ public class PgBouncerConfig
     /// Настройки пулов соединений
     /// </summary>
     public PoolConfig Pool { get; set; } = new();
-
+  
     /// <summary>
     /// Настройки аутентификации
     /// </summary>

@@ -5,6 +5,16 @@
     <Project Path="src/PgBouncer.Dashboard.Api/PgBouncer.Dashboard.Api.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <File Path="tests/PgBouncer.Tests/ConfigurationTests.cs" />
+    <File Path="tests/PgBouncer.Tests/ConnectionTests.cs" />
+    <File Path="tests/PgBouncer.Tests/LoadTests.cs" />
+    <File Path="tests/PgBouncer.Tests/MultiDatabaseTests.cs" />
+    <File Path="tests/PgBouncer.Tests/obj/PgBouncer.Tests.csproj.nuget.dgspec.json" />
+    <File Path="tests/PgBouncer.Tests/obj/PgBouncer.Tests.csproj.nuget.g.props" />
+    <File Path="tests/PgBouncer.Tests/obj/PgBouncer.Tests.csproj.nuget.g.targets" />
+    <File Path="tests/PgBouncer.Tests/obj/project.assets.json" />
+    <File Path="tests/PgBouncer.Tests/obj/project.nuget.cache" />
+    <File Path="tests/PgBouncer.Tests/PgBouncer.Tests.csproj" />
     <Project Path="tests/PgBouncer.LoadTester/PgBouncer.LoadTester.csproj" />
   </Folder>
 </Solution>
