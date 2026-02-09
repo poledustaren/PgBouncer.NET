@@ -16,7 +16,7 @@ public enum MessageType : byte
     Flush = (byte)'H',
     Terminate = (byte)'X',
     PasswordMessage = (byte)'p',
-    
+
     // Backend messages (от сервера)
     Authentication = (byte)'R',
     BackendKeyData = (byte)'K',
@@ -51,27 +51,27 @@ public enum TransactionStatus : byte
 public abstract class PostgresMessage
 {
     public abstract MessageType Type { get; }
-    
+
     /// <summary>
     /// Сериализация сообщения в байты
     /// </summary>
     public abstract void WriteTo(Stream stream);
-    
+
     /// <summary>
     /// Десериализация из потока
     /// </summary>
     public static PostgresMessage ReadFrom(MessageType type, ReadOnlySpan<byte> payload)
     {
+        // Примечание: некоторые MessageType имеют одинаковые байтовые значения
+        // (например 'C' = CommandComplete и Close, 'E' = Execute и ErrorResponse)
+        // Здесь мы парсим только по первому совпадению
         return type switch
         {
             MessageType.Query => QueryMessage.Parse(payload),
             MessageType.Parse => ParseMessage.Parse(payload),
             MessageType.Bind => BindMessage.Parse(payload),
-            MessageType.Execute => ExecuteMessage.Parse(payload),
             MessageType.Terminate => new TerminateMessage(),
             MessageType.ReadyForQuery => ReadyForQueryMessage.Parse(payload),
-            MessageType.CommandComplete => CommandCompleteMessage.Parse(payload),
-            MessageType.ErrorResponse => ErrorResponseMessage.Parse(payload),
             _ => new UnknownMessage(type, payload.ToArray())
         };
     }
@@ -89,7 +89,7 @@ public class QueryMessage : PostgresMessage
     {
         var queryBytes = System.Text.Encoding.UTF8.GetBytes(Query);
         var length = 4 + queryBytes.Length + 1; // length + query + null terminator
-        
+
         stream.WriteByte((byte)Type);
         WriteInt32(stream, length);
         stream.Write(queryBytes);
@@ -101,7 +101,7 @@ public class QueryMessage : PostgresMessage
         var query = System.Text.Encoding.UTF8.GetString(payload[..^1]); // убираем null terminator
         return new QueryMessage { Query = query };
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];
@@ -139,7 +139,7 @@ public class ParseMessage : PostgresMessage
 public class BindMessage : PostgresMessage
 {
     public override MessageType Type => MessageType.Bind;
-    
+
     public override void WriteTo(Stream stream)
     {
         throw new NotImplementedException();
@@ -183,7 +183,7 @@ public class TerminateMessage : PostgresMessage
         stream.WriteByte((byte)Type);
         WriteInt32(stream, 4); // только длина
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];
@@ -209,12 +209,12 @@ public class ReadyForQueryMessage : PostgresMessage
 
     public static ReadyForQueryMessage Parse(ReadOnlySpan<byte> payload)
     {
-        return new ReadyForQueryMessage 
-        { 
-            Status = (TransactionStatus)payload[0] 
+        return new ReadyForQueryMessage
+        {
+            Status = (TransactionStatus)payload[0]
         };
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];
@@ -235,7 +235,7 @@ public class CommandCompleteMessage : PostgresMessage
     {
         var tagBytes = System.Text.Encoding.UTF8.GetBytes(CommandTag);
         var length = 4 + tagBytes.Length + 1;
-        
+
         stream.WriteByte((byte)Type);
         WriteInt32(stream, length);
         stream.Write(tagBytes);
@@ -247,7 +247,7 @@ public class CommandCompleteMessage : PostgresMessage
         var tag = System.Text.Encoding.UTF8.GetString(payload[..^1]);
         return new CommandCompleteMessage { CommandTag = tag };
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];
@@ -275,7 +275,7 @@ public class ErrorResponseMessage : PostgresMessage
             ms.WriteByte(0);
         }
         ms.WriteByte(0); // terminator
-        
+
         stream.WriteByte((byte)Type);
         WriteInt32(stream, (int)(4 + ms.Length));
         ms.Position = 0;
@@ -288,7 +288,7 @@ public class ErrorResponseMessage : PostgresMessage
         // TODO: полный парсинг полей
         return msg;
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];
@@ -319,7 +319,7 @@ public class UnknownMessage : PostgresMessage
         WriteInt32(stream, 4 + _payload.Length);
         stream.Write(_payload);
     }
-    
+
     private static void WriteInt32(Stream stream, int value)
     {
         Span<byte> buffer = stackalloc byte[4];

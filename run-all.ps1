@@ -38,7 +38,7 @@ Write-Host "  Прокси-сервер:    localhost:6432" -ForegroundColor Whi
 Write-Host "  Dashboard API:    http://localhost:5080/swagger" -ForegroundColor White
 Write-Host ""
 Write-Host "Подключение клиентов:" -ForegroundColor Yellow
-Write-Host "  Host=localhost;Port=6432;Database=fuel;Username=postgres;Password=password" -ForegroundColor Gray
+Write-Host "  Host=localhost;Port=6432;Database=testdb1;Username=testuser1;Password=testpass1" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Нажмите любую клавишу для остановки..." -ForegroundColor Red
 Write-Host ""

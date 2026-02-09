@@ -32,8 +32,8 @@ pgbouncer.net/
   "ListenPort": 6432,
   "DashboardPort": 5080,
   "Backend": {
-    "Host": "192.168.92.129",
-    "Port": 5432,
+    "Host": "127.0.0.1",
+    "Port": 5437,
     "AdminUser": "postgres",
     "AdminPassword": "password"
   },
@@ -78,7 +78,7 @@ API доступен на `http://localhost:5080` с Swagger UI.
 
 ```csharp
 // Было:
-Host=192.168.92.129;Port=5432;Database=fuel;...
+Host=192.168.92.129;Port=5437;Database=fuel;...
 
 // Стало:
 Host=localhost;Port=6432;Database=fuel;...

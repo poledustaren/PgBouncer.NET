@@ -36,21 +36,31 @@ public class PoolManager : IDisposable
         string password,
         CancellationToken cancellationToken = default)
     {
+        _logger?.LogInformation(">>> Запрос соединения для {Database}/{User}, текущий счётчик: {Total}", database, username, _totalConnections);
+        
         // Проверяем глобальный лимит
+        _logger?.LogDebug("Ожидание семафора...");
         await _totalConnectionsSemaphore.WaitAsync(cancellationToken);
+        _logger?.LogDebug("Семафор получен");
 
         try
         {
             var poolKey = GetPoolKey(database, username);
+            _logger?.LogDebug("Ключ пула: {PoolKey}", poolKey);
+            
             var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
 
+            _logger?.LogDebug("Запрос соединения из пула...");
             var connection = await pool.AcquireAsync(cancellationToken);
             Interlocked.Increment(ref _totalConnections);
+            
+            _logger?.LogInformation(">>> Соединение получено: {ConnectionId}", connection.Id);
 
             return connection;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogError(ex, "Ошибка при получении соединения из пула");
             _totalConnectionsSemaphore.Release();
             throw;
         }

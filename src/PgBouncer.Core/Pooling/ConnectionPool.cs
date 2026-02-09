@@ -118,14 +118,13 @@ public class ConnectionPool : IDisposable
         try
         {
             // Подключаемся и проходим аутентификацию
-            var stream = await connector.ConnectAndAuthenticateAsync(
+            var (socket, stream) = await connector.ConnectAndAuthenticateAsync(
                 _database,
                 _username,
                 _password,
                 cancellationToken);
 
-            // Получаем сокет из stream (он владеет сокетом)
-            var socket = stream.Socket;
+            // Создаем соединение с полученным сокетом и стримом
             var connection = new ServerConnection(socket, stream, _database, _username);
 
             _logger?.LogDebug("Соединение {Id} успешно аутентифицировано", connection.Id);

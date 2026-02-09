@@ -3,8 +3,8 @@
 
 param(
     [int]$Port = 6432,
-    [string]$Host = "192.168.92.129",
-    [int]$BackendPort = 5432
+    [string]$BackendHost = "localhost",
+    [int]$BackendPort = 5437
 )
 
 Write-Host "╔══════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
@@ -13,7 +13,7 @@ Write-Host "╚═════════════════════�
 Write-Host ""
 Write-Host "Конфигурация:" -ForegroundColor Yellow
 Write-Host "  Порт прослушивания:  $Port" -ForegroundColor White
-Write-Host "  Backend PostgreSQL:  ${Host}:$BackendPort" -ForegroundColor White
+Write-Host "  Backend PostgreSQL:  ${BackendHost}:$BackendPort" -ForegroundColor White
 Write-Host ""
 Write-Host "Нажмите Ctrl+C для остановки" -ForegroundColor Gray
 Write-Host ""

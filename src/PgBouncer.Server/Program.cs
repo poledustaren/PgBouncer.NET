@@ -1,10 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Serilog;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
 using PgBouncer.Server;
+using System.Text.Json;
 
 // Настройка Serilog
 Log.Logger = new LoggerConfiguration()
@@ -16,25 +19,78 @@ try
 {
     Log.Information("Запуск PgBouncer.NET...");
 
-    var host = Host.CreateDefaultBuilder(args)
-        .UseSerilog()
-        .ConfigureServices((context, services) =>
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseSerilog();
+
+    // Конфигурация
+    var config = builder.Configuration.Get<PgBouncerConfig>() ?? new PgBouncerConfig();
+    builder.Services.AddSingleton(config);
+
+    // Пул-менеджер (один на всех!)
+    builder.Services.AddSingleton<PoolManager>();
+
+    // Прокси-сервер
+    builder.Services.AddSingleton<ProxyServer>();
+    builder.Services.AddHostedService<ProxyServerHostedService>();
+
+    // CORS для дашборда
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
         {
-            // Конфигурация
-            var config = context.Configuration.Get<PgBouncerConfig>() 
-                ?? new PgBouncerConfig();
-            services.AddSingleton(config);
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
+    });
 
-            // Пул-менеджер
-            services.AddSingleton<PoolManager>();
+    var app = builder.Build();
 
-            // Прокси-сервер
-            services.AddSingleton<ProxyServer>();
-            services.AddHostedService<ProxyServerHostedService>();
-        })
-        .Build();
+    app.UseCors();
 
-    await host.RunAsync();
+    // Статические файлы дашборда
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+
+    // API endpoints для статистики
+    app.MapGet("/api/stats", (PoolManager poolManager) =>
+    {
+        var stats = poolManager.GetAllStats();
+        return Results.Ok(stats);
+    });
+
+    app.MapGet("/api/stats/summary", (PoolManager poolManager) =>
+    {
+        var allStats = poolManager.GetAllStats().ToList();
+        return Results.Ok(new
+        {
+            TotalPools = allStats.Count,
+            TotalConnections = allStats.Sum(s => s.TotalConnections),
+            ActiveConnections = allStats.Sum(s => s.ActiveConnections),
+            IdleConnections = allStats.Sum(s => s.IdleConnections),
+            Pools = allStats
+        });
+    });
+
+    app.MapGet("/api/stats/{database}/{username}", (string database, string username, PoolManager poolManager) =>
+    {
+        var stats = poolManager.GetStats(database, username);
+        return stats != null ? Results.Ok(stats) : Results.NotFound();
+    });
+
+    // Баннер
+    Console.WriteLine();
+    Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║                   PgBouncer.NET                          ║");
+    Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
+    Console.WriteLine();
+    Console.WriteLine($"  Прокси:     localhost:{config.ListenPort}");
+    Console.WriteLine($"  Dashboard:  http://localhost:{config.DashboardPort}/");
+    Console.WriteLine($"  API:        http://localhost:{config.DashboardPort}/api/stats");
+    Console.WriteLine($"  Backend:    {config.Backend.Host}:{config.Backend.Port}");
+    Console.WriteLine();
+
+    await app.RunAsync($"http://0.0.0.0:{config.DashboardPort}");
 }
 catch (Exception ex)
 {

@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.IO.Pipelines;
+using Microsoft.Extensions.Logging;
 
 namespace PgBouncer.Core.Protocol;
 
@@ -72,17 +73,17 @@ public class PostgresProtocolReader
         // Извлекаем payload (без типа и длины)
         var payloadLength = length - 4;
         var payloadBuffer = buffer.Slice(5, payloadLength);
-        
+
         // Копируем payload в массив для парсинга
         byte[] payloadArray = ArrayPool<byte>.Shared.Rent(payloadLength);
         try
         {
             payloadBuffer.CopyTo(payloadArray);
             var payloadSpan = new ReadOnlySpan<byte>(payloadArray, 0, payloadLength);
-            
+
             message = PostgresMessage.ReadFrom(messageType, payloadSpan);
-            
-            _logger?.LogTrace("Прочитано сообщение: {MessageType}, длина: {Length}", 
+
+            _logger?.LogTrace("Прочитано сообщение: {MessageType}, длина: {Length}",
                 messageType, length);
         }
         finally
@@ -126,7 +127,7 @@ public class PostgresProtocolReader
             return false;
 
         var reader = new SequenceReader<byte>(buffer);
-        
+
         // Читаем длину
         Span<byte> lengthBytes = stackalloc byte[4];
         reader.TryCopyTo(lengthBytes);
@@ -144,21 +145,21 @@ public class PostgresProtocolReader
         // Парсим параметры (key-value пары, null-terminated)
         var parameters = new Dictionary<string, string>();
         reader.Advance(4);
-        
+
         var remaining = length - 8;
         byte[] paramBuffer = ArrayPool<byte>.Shared.Rent(remaining);
         try
         {
             var paramSlice = buffer.Slice(8, remaining);
             paramSlice.CopyTo(paramBuffer);
-            
+
             int offset = 0;
             while (offset < remaining - 1) // -1 для финального null terminator
             {
                 var key = ReadNullTerminatedString(paramBuffer, ref offset);
                 if (string.IsNullOrEmpty(key))
                     break;
-                    
+
                 var value = ReadNullTerminatedString(paramBuffer, ref offset);
                 parameters[key] = value;
             }
@@ -183,7 +184,7 @@ public class PostgresProtocolReader
         var start = offset;
         while (offset < buffer.Length && buffer[offset] != 0)
             offset++;
-        
+
         var str = System.Text.Encoding.UTF8.GetString(buffer, start, offset - start);
         offset++; // skip null terminator
         return str;
@@ -197,13 +198,7 @@ public class StartupMessage
 {
     public int ProtocolVersion { get; set; }
     public Dictionary<string, string> Parameters { get; set; } = new();
-    
+
     public string? Database => Parameters.GetValueOrDefault("database");
     public string? User => Parameters.GetValueOrDefault("user");
-}
-
-// Добавляем заглушку для ILogger если нужно
-public interface ILogger
-{
-    void LogTrace(string message, params object[] args);
 }
