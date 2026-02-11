@@ -1,3 +1,4 @@
+using System.IO;
 using System.Net.Sockets;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
@@ -122,6 +123,14 @@ public class ClientSession : IDisposable
 
             _logger.LogInformation(">>> {Database}/{User}", _database, _username);
 
+            // === ВЫБОР РЕЖИМА POOLING ===
+            if (_config.Pool.Mode == PoolingMode.Transaction)
+            {
+                await RunTransactionPoolingAsync(cancellationToken);
+                return;
+            }
+
+            // === SESSION POOLING (текущая логика) ===
             // 2. ЖДЁМ ДОСТУПНОГО СЛОТА для backend соединения
             _sessionInfo.State = SessionState.WaitingForSlot;
             _sessionInfo.WaitStartedAt = DateTime.UtcNow;
@@ -202,6 +211,100 @@ public class ClientSession : IDisposable
                 _logger.LogDebug("Слот освобождён");
             }
         }
+    }
+
+    /// <summary>
+    /// Transaction Pooling режим — backend захватывается на каждый Query
+    /// </summary>
+    private async Task RunTransactionPoolingAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("=== TRANSACTION POOLING MODE ===");
+        _sessionInfo.State = SessionState.Idle;
+
+        // Получаем пул для database/user
+        var pool = await _poolManager.GetPoolAsync(_database!, _username!, _password!);
+
+        // Сначала нужно завершить handshake с клиентом — отправляем AuthOk и ReadyForQuery
+        await SendAuthOkAndReadyAsync(cancellationToken);
+
+        // Передаём управление TransactionPoolingSession
+        using var txSession = new TransactionPoolingSession(
+            _clientStream,
+            pool,
+            _config,
+            _logger,
+            _sessionInfo,
+            _recordWaitTime,
+            _recordTimeout,
+            _onBackendAcquired,
+            _onBackendReleased);
+
+        await txSession.RunAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Отправить клиенту AuthOk, ParameterStatus и ReadyForQuery для завершения handshake
+    /// </summary>
+    private async Task SendAuthOkAndReadyAsync(CancellationToken cancellationToken)
+    {
+        using var ms = new MemoryStream(512);
+
+        // 1. AuthenticationOk: R(1) + length(4) + 0(4)
+        ms.WriteByte((byte)'R');
+        WriteInt32BigEndian(ms, 8);  // length включая себя
+        WriteInt32BigEndian(ms, 0);  // auth type 0 = OK
+
+        // 2. ParameterStatus сообщения (минимальный набор для Npgsql)
+        WriteParameterStatus(ms, "server_version", "16.0");
+        WriteParameterStatus(ms, "server_encoding", "UTF8");
+        WriteParameterStatus(ms, "client_encoding", "UTF8");
+        WriteParameterStatus(ms, "DateStyle", "ISO, MDY");
+        WriteParameterStatus(ms, "TimeZone", "UTC");
+        WriteParameterStatus(ms, "integer_datetimes", "on");
+        WriteParameterStatus(ms, "standard_conforming_strings", "on");
+
+        // 3. BackendKeyData: K(1) + length(4) + pid(4) + secret(4)
+        ms.WriteByte((byte)'K');
+        WriteInt32BigEndian(ms, 12);
+        WriteInt32BigEndian(ms, Environment.ProcessId);  // PID
+        WriteInt32BigEndian(ms, Random.Shared.Next());   // Secret key
+
+        // 4. ReadyForQuery: Z(1) + length(4) + status(1='I')
+        ms.WriteByte((byte)'Z');
+        WriteInt32BigEndian(ms, 5);
+        ms.WriteByte((byte)'I');  // Idle
+
+        await _clientStream.WriteAsync(ms.ToArray(), cancellationToken);
+        await _clientStream.FlushAsync(cancellationToken);
+
+        _logger.LogDebug("Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту");
+    }
+
+    /// <summary>
+    /// Записать ParameterStatus сообщение
+    /// </summary>
+    private static void WriteParameterStatus(MemoryStream ms, string name, string value)
+    {
+        var nameBytes = System.Text.Encoding.UTF8.GetBytes(name);
+        var valueBytes = System.Text.Encoding.UTF8.GetBytes(value);
+        var length = 4 + nameBytes.Length + 1 + valueBytes.Length + 1;
+
+        ms.WriteByte((byte)'S');
+        WriteInt32BigEndian(ms, length);
+        ms.Write(nameBytes);
+        ms.WriteByte(0);  // null terminator
+        ms.Write(valueBytes);
+        ms.WriteByte(0);  // null terminator
+    }
+
+    /// <summary>
+    /// Записать int32 в big-endian
+    /// </summary>
+    private static void WriteInt32BigEndian(MemoryStream ms, int value)
+    {
+        Span<byte> buf = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buf, value);
+        ms.Write(buf);
     }
 
     /// <summary>

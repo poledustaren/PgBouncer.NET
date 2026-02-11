@@ -31,7 +31,8 @@ public enum SessionState
 {
     Connecting,
     WaitingForSlot,
-    Active,
+    Idle,      // Transaction Pooling: ожидание запроса (backend свободен)
+    Active,    // Transaction Pooling: выполнение запроса (backend занят)
     Completed,
     Error
 }

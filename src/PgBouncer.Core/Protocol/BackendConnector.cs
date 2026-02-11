@@ -37,10 +37,10 @@ public class BackendConnector
         {
             // Подключаемся к PostgreSQL с таймаутом
             _logger?.LogInformation("Подключаемся к PostgreSQL {Host}:{Port}...", _config.Host, _config.Port);
-            
+
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(10)); // 10 секунд на подключение
-            
+
             try
             {
                 await socket.ConnectAsync(_config.Host, _config.Port, cts.Token);
@@ -49,7 +49,7 @@ public class BackendConnector
             {
                 throw new TimeoutException($"Таймаут подключения к PostgreSQL {_config.Host}:{_config.Port}");
             }
-            
+
             var stream = new NetworkStream(socket, ownsSocket: false);
             stream.ReadTimeout = 10000;
             stream.WriteTimeout = 10000;
@@ -149,9 +149,84 @@ public class BackendConnector
                 await HandleAuthResponseAsync(stream, username, password, cancellationToken);
                 break;
 
+            case AuthenticationType.SASL:
+                // SCRAM-SHA-256 аутентификация
+                _logger?.LogInformation("Начинаем SASL/SCRAM-SHA-256 аутентификацию");
+                await HandleSaslAuthenticationAsync(stream, buffer, bytesRead, username, password, cancellationToken);
+                break;
+
             default:
                 throw new NotSupportedException($"Тип аутентификации {authType} не поддерживается");
         }
+    }
+
+    /// <summary>
+    /// Обработка SASL/SCRAM-SHA-256 аутентификации
+    /// </summary>
+    private async Task HandleSaslAuthenticationAsync(
+        NetworkStream stream,
+        byte[] initialBuffer,
+        int initialBytesRead,
+        string username,
+        string password,
+        CancellationToken cancellationToken)
+    {
+        var scram = new ScramSha256Authenticator(username, password);
+
+        // 1. Отправляем SASLInitialResponse
+        var initialResponse = scram.CreateInitialResponse();
+        await stream.WriteAsync(initialResponse, cancellationToken);
+        await stream.FlushAsync(cancellationToken);
+        _logger?.LogInformation("Отправлен SASLInitialResponse");
+
+        // 2. Читаем AuthenticationSASLContinue
+        var buffer = new byte[8192];
+        var bytesRead = await stream.ReadAsync(buffer, cancellationToken);
+
+        if (bytesRead < 9)
+            throw new InvalidOperationException("Неполный ответ AuthenticationSASLContinue");
+
+        var msgType = (char)buffer[0];
+        var msgLen = BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(1));
+        var authCode = BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(5));
+
+        if (msgType != 'R' || authCode != (int)AuthenticationType.SASLContinue)
+            throw new InvalidOperationException($"Ожидался AuthenticationSASLContinue, получено: {msgType}/{authCode}");
+
+        // Server-first-message начинается после 9 байт (type + length + authCode)
+        var serverFirstLength = msgLen - 8;
+        var serverFirstData = new byte[serverFirstLength];
+        Array.Copy(buffer, 9, serverFirstData, 0, serverFirstLength);
+        _logger?.LogInformation("Получен AuthenticationSASLContinue: {Data}", System.Text.Encoding.UTF8.GetString(serverFirstData));
+
+        // 3. Обрабатываем server-first и отправляем client-final
+        var clientFinal = scram.ProcessServerFirstMessage(serverFirstData);
+        await stream.WriteAsync(clientFinal, cancellationToken);
+        await stream.FlushAsync(cancellationToken);
+        _logger?.LogInformation("Отправлен SASLResponse (client-final)");
+
+        // 4. Читаем AuthenticationSASLFinal
+        bytesRead = await stream.ReadAsync(buffer, cancellationToken);
+
+        if (bytesRead < 9)
+            throw new InvalidOperationException("Неполный ответ AuthenticationSASLFinal");
+
+        msgType = (char)buffer[0];
+        msgLen = BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(1));
+        authCode = BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(5));
+
+        if (msgType != 'R' || authCode != (int)AuthenticationType.SASLFinal)
+            throw new InvalidOperationException($"Ожидался AuthenticationSASLFinal, получено: {msgType}/{authCode}");
+
+        // Можем проверить server signature (опционально)
+        var serverFinalLength = msgLen - 8;
+        var serverFinalData = new byte[serverFinalLength];
+        Array.Copy(buffer, 9, serverFinalData, 0, serverFinalLength);
+        scram.VerifyServerFinalMessage(serverFinalData);
+        _logger?.LogInformation("Получен AuthenticationSASLFinal, верификация прошла");
+
+        // 5. Ждём AuthenticationOk и ReadyForQuery
+        await HandleAuthResponseAsync(stream, username, password, cancellationToken);
     }
 
     /// <summary>
@@ -191,7 +266,7 @@ public class BackendConnector
                 Array.Copy(buffer, bufferOffset, buffer, 0, remaining);
                 bufferOffset = 0;
                 bufferLength = remaining;
-                
+
                 var read = await stream.ReadAsync(buffer.AsMemory(bufferLength), cancellationToken);
                 bufferLength += read;
                 continue;
@@ -264,7 +339,7 @@ public class BackendConnector
                 Array.Copy(buffer, bufferOffset, buffer, 0, remaining);
                 bufferOffset = 0;
                 bufferLength = remaining;
-                
+
                 var read = await stream.ReadAsync(buffer.AsMemory(bufferLength), cancellationToken);
                 bufferLength += read;
                 continue;

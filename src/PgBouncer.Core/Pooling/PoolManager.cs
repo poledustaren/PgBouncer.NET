@@ -37,7 +37,7 @@ public class PoolManager : IDisposable
         CancellationToken cancellationToken = default)
     {
         _logger?.LogInformation(">>> Запрос соединения для {Database}/{User}, текущий счётчик: {Total}", database, username, _totalConnections);
-        
+
         // Проверяем глобальный лимит
         _logger?.LogInformation("Ожидание семафора...");
         await _totalConnectionsSemaphore.WaitAsync(cancellationToken);
@@ -47,13 +47,13 @@ public class PoolManager : IDisposable
         {
             var poolKey = GetPoolKey(database, username);
             _logger?.LogInformation("Ключ пула: {PoolKey}", poolKey);
-            
+
             var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
 
             _logger?.LogInformation("Запрос соединения из пула...");
             var connection = await pool.AcquireAsync(cancellationToken);
             Interlocked.Increment(ref _totalConnections);
-            
+
             _logger?.LogInformation(">>> Соединение получено: {ConnectionId}", connection.Id);
 
             return connection;
@@ -96,6 +96,16 @@ public class PoolManager : IDisposable
     {
         var poolKey = GetPoolKey(database, username);
         return _pools.TryGetValue(poolKey, out var pool) ? pool.GetStats() : null;
+    }
+
+    /// <summary>
+    /// Получить пул для database/user (для Transaction Pooling)
+    /// </summary>
+    public Task<ConnectionPool> GetPoolAsync(string database, string username, string password)
+    {
+        var poolKey = GetPoolKey(database, username);
+        var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
+        return Task.FromResult(pool);
     }
 
     /// <summary>

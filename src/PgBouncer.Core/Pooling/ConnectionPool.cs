@@ -1,12 +1,16 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
+using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using PgBouncer.Core.Configuration;
 
 namespace PgBouncer.Core.Pooling;
 
 /// <summary>
-/// Пул соединений к одной БД для одного пользователя
+/// Оптимизированный пул соединений на Channel<T>
+/// - FIFO ротация (равномерное использование соединений)
+/// - Zero-allocation ожидание
+/// - Bounded capacity
 /// </summary>
 public class ConnectionPool : IDisposable
 {
@@ -17,12 +21,13 @@ public class ConnectionPool : IDisposable
     private readonly PoolConfig _poolConfig;
     private readonly ILogger? _logger;
 
-    private readonly ConcurrentBag<ServerConnection> _availableConnections = new();
+    // Channel обеспечивает FIFO и async wait без SemaphoreSlim overhead
+    private readonly Channel<ServerConnection> _idleChannel;
     private readonly ConcurrentDictionary<Guid, ServerConnection> _activeConnections = new();
-    private readonly SemaphoreSlim _connectionSemaphore;
     private readonly Timer? _idleCleanupTimer;
+    private readonly SemaphoreSlim _createLock = new(1, 1);
 
-    private int _totalConnections;
+    private int _currentSize;
     private long _totalAcquired;
     private long _totalReleased;
     private bool _disposed;
@@ -42,7 +47,15 @@ public class ConnectionPool : IDisposable
         _poolConfig = poolConfig;
         _logger = logger;
 
-        _connectionSemaphore = new SemaphoreSlim(poolConfig.MaxSize, poolConfig.MaxSize);
+        // Создаём bounded channel с FIFO семантикой
+        var options = new BoundedChannelOptions(poolConfig.MaxSize)
+        {
+            FullMode = BoundedChannelFullMode.Wait,
+            SingleReader = false,
+            SingleWriter = false,
+            AllowSynchronousContinuations = false
+        };
+        _idleChannel = Channel.CreateBounded<ServerConnection>(options);
 
         // Запускаем таймер для очистки idle соединений
         if (poolConfig.IdleTimeout > 0)
@@ -56,68 +69,111 @@ public class ConnectionPool : IDisposable
     }
 
     /// <summary>
-    /// Получить соединение из пула
+    /// Получить соединение из пула (zero-allocation при наличии idle)
     /// </summary>
-    public async Task<ServerConnection> AcquireAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<ServerConnection> AcquireAsync(CancellationToken cancellationToken = default)
     {
-        // Ждём доступности слота
-        await _connectionSemaphore.WaitAsync(cancellationToken);
+        Interlocked.Increment(ref _totalAcquired);
+
+        // 1. Пытаемся взять из idle (zero-alloc fast path)
+        while (_idleChannel.Reader.TryRead(out var connection))
+        {
+            if (connection.IsHealthy)
+            {
+                _activeConnections[connection.Id] = connection;
+                connection.UpdateActivity();
+                _logger?.LogTrace("Переиспользовано соединение {ConnectionId} для {Database}/{User}",
+                    connection.Id, _database, _username);
+                return connection;
+            }
+
+            // Соединение мёртвое, закрываем
+            await connection.DisposeAsync();
+            Interlocked.Decrement(ref _currentSize);
+        }
+
+        // 2. Пытаемся создать новое (если лимит не достигнут)
+        var currentSize = Interlocked.Increment(ref _currentSize);
+        if (currentSize <= _poolConfig.MaxSize)
+        {
+            try
+            {
+                var newConnection = await CreateConnectionAsync(cancellationToken);
+                _activeConnections[newConnection.Id] = newConnection;
+                _logger?.LogInformation("Создано соединение {ConnectionId} для {Database}/{User} (всего: {Total})",
+                    newConnection.Id, _database, _username, currentSize);
+                return newConnection;
+            }
+            catch
+            {
+                Interlocked.Decrement(ref _currentSize);
+                throw;
+            }
+        }
+
+        // 3. Лимит достигнут - ждём освобождения с таймаутом
+        Interlocked.Decrement(ref _currentSize);
+        _logger?.LogDebug("Лимит пула достигнут ({Max}), ожидание...", _poolConfig.MaxSize);
+
+        // Добавляем таймаут чтобы не ждать вечно
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(_poolConfig.ConnectionTimeout > 0 ? _poolConfig.ConnectionTimeout : 30));
 
         try
         {
-            // Пытаемся взять существующее соединение
-            if (_availableConnections.TryTake(out var connection))
-            {
-                if (connection.IsHealthy)
-                {
-                    _activeConnections[connection.Id] = connection;
-                    _logger?.LogTrace("Переиспользовано соединение {ConnectionId} для {Database}/{User}",
-                        connection.Id, _database, _username);
-                    return connection;
-                }
+            var waitedConnection = await _idleChannel.Reader.ReadAsync(timeoutCts.Token);
 
-                // Соединение мёртвое, закрываем
-                await connection.DisposeAsync();
-                Interlocked.Decrement(ref _totalConnections);
+            if (!waitedConnection.IsHealthy)
+            {
+                await waitedConnection.DisposeAsync();
+                // Рекурсивный вызов для получения нового соединения
+                return await AcquireAsync(cancellationToken);
             }
 
-            // Создаём новое соединение
-            var newConnection = await CreateConnectionAsync(cancellationToken);
-            _activeConnections[newConnection.Id] = newConnection;
-            Interlocked.Increment(ref _totalConnections);
-
-            _logger?.LogInformation("Создано новое соединение {ConnectionId} для {Database}/{User} (всего: {Total})",
-                newConnection.Id, _database, _username, _totalConnections);
-
-            return newConnection;
+            _activeConnections[waitedConnection.Id] = waitedConnection;
+            waitedConnection.UpdateActivity();
+            return waitedConnection;
         }
-        catch
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            _connectionSemaphore.Release();
-            throw;
+            // Наш таймаут сработал, а не внешний cancellation
+            _logger?.LogWarning("Таймаут ожидания соединения из пула ({Timeout}s)", _poolConfig.ConnectionTimeout);
+            throw new TimeoutException($"Не удалось получить соединение из пула за {_poolConfig.ConnectionTimeout} секунд");
         }
     }
 
     /// <summary>
-    /// Вернуть соединение в пул
+    /// Вернуть соединение в пул (zero-allocation)
     /// </summary>
     public void Release(ServerConnection connection)
     {
+        Interlocked.Increment(ref _totalReleased);
+
         if (_activeConnections.TryRemove(connection.Id, out _))
         {
+            connection.UpdateActivity();
+
             if (connection.IsHealthy && !_disposed)
             {
-                _availableConnections.Add(connection);
-                _logger?.LogTrace("Соединение {ConnectionId} возвращено в пул", connection.Id);
+                // TryWrite - zero-alloc, если есть место в канале
+                if (_idleChannel.Writer.TryWrite(connection))
+                {
+                    _logger?.LogTrace("Соединение {ConnectionId} возвращено в пул", connection.Id);
+                }
+                else
+                {
+                    // Канал полон (не должно быть при правильной логике)
+                    connection.DisposeAsync().AsTask().Wait();
+                    Interlocked.Decrement(ref _currentSize);
+                    _logger?.LogWarning("Канал полон, соединение {ConnectionId} закрыто", connection.Id);
+                }
             }
             else
             {
                 connection.DisposeAsync().AsTask().Wait();
-                Interlocked.Decrement(ref _totalConnections);
-                _logger?.LogTrace("Соединение {ConnectionId} закрыто", connection.Id);
+                Interlocked.Decrement(ref _currentSize);
+                _logger?.LogTrace("Соединение {ConnectionId} закрыто (нездоровое или disposed)", connection.Id);
             }
-
-            _connectionSemaphore.Release();
         }
     }
 
@@ -159,41 +215,36 @@ public class ConnectionPool : IDisposable
         if (_disposed) return;
 
         var idleTimeout = _poolConfig.IdleTimeout;
-        var toRemove = new List<ServerConnection>();
+        var toKeep = new List<ServerConnection>();
+        var removedCount = 0;
 
-        // Собираем idle соединения из доступных
-        var tempBag = new ConcurrentBag<ServerConnection>();
-        while (_availableConnections.TryTake(out var conn))
+        // Вычитываем все из канала
+        while (_idleChannel.Reader.TryRead(out var conn))
         {
             if (conn.IsIdle(idleTimeout) || !conn.IsHealthy)
             {
-                toRemove.Add(conn);
+                conn.DisposeAsync().AsTask().Wait();
+                Interlocked.Decrement(ref _currentSize);
+                removedCount++;
+                _logger?.LogInformation("Закрыто idle соединение {Id} для {Database}/{User}",
+                    conn.Id, _database, _username);
             }
             else
             {
-                tempBag.Add(conn);
+                toKeep.Add(conn);
             }
         }
 
-        // Возвращаем не-idle обратно
-        while (tempBag.TryTake(out var conn))
+        // Возвращаем живые обратно в канал
+        foreach (var conn in toKeep)
         {
-            _availableConnections.Add(conn);
+            _idleChannel.Writer.TryWrite(conn);
         }
 
-        // Закрываем idle соединения
-        foreach (var conn in toRemove)
-        {
-            conn.DisposeAsync().AsTask().Wait();
-            Interlocked.Decrement(ref _totalConnections);
-            _logger?.LogInformation("Закрыто idle соединение {Id} для {Database}/{User}",
-                conn.Id, _database, _username);
-        }
-
-        if (toRemove.Count > 0)
+        if (removedCount > 0)
         {
             _logger?.LogDebug("Очищено {Count} idle соединений, осталось: {Total}",
-                toRemove.Count, _totalConnections);
+                removedCount, _currentSize);
         }
     }
 
@@ -202,13 +253,16 @@ public class ConnectionPool : IDisposable
     /// </summary>
     public PoolStats GetStats()
     {
+        // Channel.Reader.Count даёт количество элементов в канале
+        var idleCount = _idleChannel.Reader.Count;
+
         return new PoolStats
         {
             Database = _database,
             Username = _username,
-            TotalConnections = _totalConnections,
+            TotalConnections = _currentSize,
             ActiveConnections = _activeConnections.Count,
-            IdleConnections = _availableConnections.Count,
+            IdleConnections = idleCount,
             MaxConnections = _poolConfig.MaxSize
         };
     }
@@ -218,18 +272,24 @@ public class ConnectionPool : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        // Закрываем все соединения
+        _idleCleanupTimer?.Dispose();
+
+        // Завершаем канал
+        _idleChannel.Writer.Complete();
+
+        // Закрываем все активные соединения
         foreach (var conn in _activeConnections.Values)
         {
             conn.DisposeAsync().AsTask().Wait();
         }
 
-        while (_availableConnections.TryTake(out var conn))
+        // Закрываем все idle соединения
+        while (_idleChannel.Reader.TryRead(out var conn))
         {
             conn.DisposeAsync().AsTask().Wait();
         }
 
-        _connectionSemaphore.Dispose();
+        _createLock.Dispose();
     }
 }
 
