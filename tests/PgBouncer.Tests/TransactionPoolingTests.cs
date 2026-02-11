@@ -97,6 +97,50 @@ public class TransactionPoolingTests
         releasedConnection.Should().Be(_backendMock.Object);
     }
 
+    [Fact]
+    public async Task RunAsync_ShouldSendErrorWhenPoolTimeout()
+    {
+        // Arrange
+        _poolMock.Setup(x => x.AcquireAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new OperationCanceledException());
+
+        var timeoutRecorded = false;
+        var session = new TransactionPoolingSession(
+            _clientStream,
+            _poolMock.Object,
+            _config,
+            NullLogger.Instance,
+            _sessionInfo,
+            _ => { },
+            () => timeoutRecorded = true,
+            () => { },
+            () => { }
+        );
+
+        // Client sends a query that will trigger backend acquisition
+        var queryMsg = CreateQueryMessage("SELECT 1");
+        _clientStream.WriteToInput(queryMsg);
+
+        // Act
+        await session.RunAsync(CancellationToken.None);
+
+        // Assert
+        // 1. Verify timeout was recorded
+        timeoutRecorded.Should().BeTrue("timeout callback should be invoked");
+
+        // 2. Verify error was sent to client
+        var clientOutput = _clientStream.OutputBuffer.ToArray();
+        clientOutput.Length.Should().BeGreaterThan(0, "error response should be sent to client");
+        clientOutput[0].Should().Be((byte)'E', "first byte should be ErrorResponse message type");
+
+        // 3. Verify error message contains "timeout"
+        var errorMsg = Encoding.UTF8.GetString(clientOutput);
+        errorMsg.Should().Contain("timeout", "error message should mention timeout");
+
+        // 4. Verify AcquireAsync was called
+        _poolMock.Verify(x => x.AcquireAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private byte[] CreateQueryMessage(string query)
     {
         var queryBytes = Encoding.UTF8.GetBytes(query);
