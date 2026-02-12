@@ -24,7 +24,7 @@ public class PgBouncerConfig
     /// Настройки пулов соединений
     /// </summary>
     public PoolConfig Pool { get; set; } = new();
-  
+
     /// <summary>
     /// Настройки аутентификации
     /// </summary>
@@ -75,12 +75,12 @@ public class PoolConfig
     /// <summary>
     /// Максимальный размер пула для одной БД/пользователя
     /// </summary>
-    public int MaxSize { get; set; } = 100;
+    public int MaxSize { get; set; } = 1000;
 
     /// <summary>
     /// Максимальное общее количество серверных соединений
     /// </summary>
-    public int MaxTotalConnections { get; set; } = 2000;
+    public int MaxTotalConnections { get; set; } = 8000;
 
     /// <summary>
     /// Режим пулинга
@@ -90,12 +90,12 @@ public class PoolConfig
     /// <summary>
     /// Таймаут idle соединения (секунды)
     /// </summary>
-    public int IdleTimeout { get; set; } = 300;
+    public int IdleTimeout { get; set; } = 600;
 
     /// <summary>
     /// Таймаут подключения к бэкенду (секунды)
     /// </summary>
-    public int ConnectionTimeout { get; set; } = 30;
+    public int ConnectionTimeout { get; set; } = 60;
 }
 
 /// <summary>

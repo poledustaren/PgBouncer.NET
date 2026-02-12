@@ -1,0 +1,780 @@
+[23:42:16 INF] === ЗАПУСК PgBouncer.NET. RunID: 2026-02-11_23-42-16 ===
+[23:42:16 INF] Запуск PgBouncer.NET...
+[23:42:16 DBG] Registered model binder providers, in the following order: ["Microsoft.AspNetCore.Mvc.ModelBinding.Binders.BinderTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ServicesModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.BodyModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.HeaderModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FloatingPointTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.EnumTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.DateTimeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.SimpleTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.TryParseModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.CancellationTokenModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ByteArrayModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FormFileModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FormCollectionModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.KeyValuePairModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.DictionaryModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ArrayModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.CollectionModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ComplexObjectModelBinderProvider"]
+
+╔══════════════════════════════════════════════════════════╗
+║                   PgBouncer.NET                          ║
+╚══════════════════════════════════════════════════════════╝
+
+  Прокси:     localhost:6434
+  Dashboard:  http://localhost:5081/
+  API:        http://localhost:5081/api/stats
+  Backend:    127.0.0.1:5437
+
+[23:42:16 DBG] Hosting starting
+[23:42:16 INF] Лимит backend соединений: 90
+[23:42:16 INF] PgBouncer.NET запущен на порту 6434
+[23:42:16 INF] MONITOR STARTED
+[23:42:16 INF] [MONITOR] Threads: W=0/1000/32767, IO=0/1000/1000. RAM: 51MB. Handles: 454
+[23:42:16 INF] Now listening on: http://0.0.0.0:5081
+[23:42:16 DBG] Loaded hosting startup assembly PgBouncer.Server
+[23:42:16 INF] Application started. Press Ctrl+C to shut down.
+[23:42:16 INF] Hosting environment: Development
+[23:42:16 INF] Content root path: C:\Projects\pgbouncer.net\src\PgBouncer.Server
+[23:42:16 DBG] Hosting started
+[23:42:17 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 56MB. Handles: 477
+[23:42:18 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:19 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:20 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:21 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:22 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:23 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:24 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:25 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:26 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[23:42:27 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[23:42:28 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[23:42:29 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[23:42:30 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[23:42:31 DBG] === НОВАЯ СЕССИЯ ===
+[23:42:31 DBG] SSLRequest -> отвечаем 'N'
+[23:42:31 INF] >>> postgres/postgres
+[23:42:31 INF] === TRANSACTION POOLING MODE ===
+[23:42:31 INF] Getting pool for postgres/postgres...
+[23:42:31 INF] Создание нового пула для postgres/postgres
+[23:42:31 INF] Sending AuthOk + ReadyForQuery...
+[23:42:31 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[23:42:31 INF] AuthOk sent. Starting TransactionPoolingSession...
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Стартуем эту шарманку. Full Duplex mode.
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''Q'' (0x51), Length=3630
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''Q'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] No backend available, acquiring from pool...
+[23:42:31 INF] [CreateConnection] Starting connection to 127.0.0.1:5437 for database postgres, user postgres
+[23:42:31 DBG] [CreateConnection] Calling ConnectAndAuthenticateAsync...
+[23:42:31 INF] Подключаемся к PostgreSQL 127.0.0.1:5437...
+[23:42:31 INF] Подключено к PostgreSQL 127.0.0.1:5437
+[23:42:31 INF] Отправлен StartupMessage для postgres/postgres
+[23:42:31 INF] Ожидание ответа от PostgreSQL...
+[23:42:31 INF] Получено 409 байт от PostgreSQL
+[23:42:31 INF] Получен AuthenticationRequest, обрабатываем...
+[23:42:31 INF] Auth type: Ok, bytes read: 409, first message length: 8
+[23:42:31 INF] Checking buffer from offset 9 for ReadyForQuery...
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 9, length 35
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 45, length 25
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 71, length 23
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 95, length 38
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 134, length 23
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 158, length 25
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 184, length 27
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 212, length 20
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 233, length 25
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 259, length 25
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 285, length 35
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 321, length 35
+[23:42:31 INF] Found message type ''S'' (0x53) at offset 357, length 32
+[23:42:31 INF] Found message type ''K'' (0x4B) at offset 390, length 12
+[23:42:31 INF] Found message type ''Z'' (0x5A) at offset 403, length 5
+[23:42:31 INF] SUCCESS: ReadyForQuery found in initial buffer!
+[23:42:31 DBG] [CreateConnection] ConnectAndAuthenticateAsync succeeded, creating ServerConnection...
+[23:42:31 INF] [CreateConnection] SUCCESS: Connection 5d91ba1a-c527-4754-a657-c4ea8b31038f created and authenticated
+[23:42:31 INF] Создано соединение 5d91ba1a-c527-4754-a657-c4ea8b31038f для postgres/postgres (всего: 1)
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 28ms. Погнали!
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend acquired successfully
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=32
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=69
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=164
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=61
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=67
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=74
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=73
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=72
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=68
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=69
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=71
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=70
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=76
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=75
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=75
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=71
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=15
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=81
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=56
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''P'' (0x50), Length=27
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Entering Extended Query mode (Parse received).
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''P'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] No backend available, acquiring from pool...
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend acquired successfully
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''B'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Reusing existing backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''D'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Reusing existing backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''E'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Reusing existing backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Exiting Extended Query mode (Sync received).
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Message type ''S'' requires backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Reusing existing backend
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=31
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Получено сообщение от клиента: Type=''X'' (0x58), Length=4
+[23:42:31 DBG] [Session 660e0690-02f4-442d-a4d1-a3d03bcd98c9] Клиент вежливо попрощался (Celebrate).
+[23:42:31 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 486
+[23:42:32 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 486
+[23:42:33 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 486
+[23:42:34 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 486
+[23:42:35 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 486
+[23:42:36 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 61MB. Handles: 486
+[23:42:37 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:38 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:39 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:40 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 483
+[23:42:41 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:42 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:43 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:45 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 61MB. Handles: 486
+[23:42:46 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 486
+[23:42:47 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:42:48 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:42:49 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:42:50 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:42:51 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:42:52 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:42:53 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 61MB. Handles: 485
+[23:42:54 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 61MB. Handles: 485
+[23:42:55 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 61MB. Handles: 485
+[23:42:56 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:42:57 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:42:58 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:42:59 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:43:00 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:43:01 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 62MB. Handles: 485
+[23:43:02 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:03 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:04 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:05 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:06 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:07 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 485
+[23:43:08 DBG] === НОВАЯ СЕССИЯ ===
+[23:43:08 DBG] SSLRequest -> отвечаем 'N'
+[23:43:08 INF] >>> postgres/postgres
+[23:43:08 INF] === TRANSACTION POOLING MODE ===
+[23:43:08 INF] Getting pool for postgres/postgres...
+[23:43:08 INF] Sending AuthOk + ReadyForQuery...
+[23:43:08 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[23:43:08 INF] AuthOk sent. Starting TransactionPoolingSession...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Стартуем эту шарманку. Full Duplex mode.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''Q'' (0x51), Length=3630
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''Q'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=32
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=69
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=164
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=47
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=61
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=51
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=49
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=50
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=67
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=74
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=48
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=73
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=72
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=68
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=69
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=71
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=70
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=52
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=53
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=54
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=55
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=57
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=56
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=62
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=59
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=58
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=60
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=64
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=63
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=65
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=76
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=75
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=75
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=71
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=15
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=81
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=56
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''P'' (0x50), Length=23
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''P'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''B'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''D'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''E'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''S'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=28
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''P'' (0x50), Length=23
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''P'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''B'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''D'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''E'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''S'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=28
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''P'' (0x50), Length=23
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''P'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''B'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''D'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''E'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''S'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=28
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''P'' (0x50), Length=23
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''P'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''B'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''D'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''E'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''S'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=28
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''P'' (0x50), Length=23
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''P'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend acquired successfully
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''B'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''D'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''E'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Message type ''S'' requires backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Reusing existing backend
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=28
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Получено сообщение от клиента: Type=''X'' (0x58), Length=4
+[23:43:08 DBG] [Session d2c2759d-a838-45a4-a9f6-4ece616ca1fd] Клиент вежливо попрощался (Celebrate).
+[23:43:08 DBG] === НОВАЯ СЕССИЯ ===
+[23:43:08 DBG] SSLRequest -> отвечаем 'N'
+[23:43:08 INF] >>> postgres/postgres
+[23:43:08 INF] === TRANSACTION POOLING MODE ===
+[23:43:08 INF] Getting pool for postgres/postgres...
+[23:43:08 INF] Sending AuthOk + ReadyForQuery...
+[23:43:08 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[23:43:08 INF] AuthOk sent. Starting TransactionPoolingSession...
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Стартуем эту шарманку. Full Duplex mode.
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''P'' (0x50), Length=33
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Message type ''P'' requires backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend acquired successfully
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Message type ''B'' requires backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Reusing existing backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Message type ''D'' requires backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Reusing existing backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Message type ''E'' requires backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Reusing existing backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Message type ''S'' requires backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Reusing existing backend
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=41
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=18
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Получено сообщение от клиента: Type=''X'' (0x58), Length=4
+[23:43:08 DBG] [Session 3beba3cf-9632-4b50-94b0-8ea2ae725611] Клиент вежливо попрощался (Celebrate).
+[23:43:08 DBG] === НОВАЯ СЕССИЯ ===
+[23:43:08 DBG] SSLRequest -> отвечаем 'N'
+[23:43:08 INF] >>> postgres/postgres
+[23:43:08 INF] === TRANSACTION POOLING MODE ===
+[23:43:08 INF] Getting pool for postgres/postgres...
+[23:43:08 INF] Sending AuthOk + ReadyForQuery...
+[23:43:08 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[23:43:08 INF] AuthOk sent. Starting TransactionPoolingSession...
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Стартуем эту шарманку. Full Duplex mode.
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''P'' (0x50), Length=27
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Entering Extended Query mode (Parse received).
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Message type ''P'' requires backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] No backend available, acquiring from pool...
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f захвачен за 0ms. Погнали!
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] ProcessBackendResponsesAsync started for backend 5d91ba1a-c527-4754-a657-c4ea8b31038f
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend acquired successfully
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''B'' (0x42), Length=14
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Message type ''B'' requires backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Reusing existing backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''D'' (0x44), Length=6
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Message type ''D'' requires backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Reusing existing backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''E'' (0x45), Length=9
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Message type ''E'' requires backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Reusing existing backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''S'' (0x53), Length=4
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Exiting Extended Query mode (Sync received).
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Message type ''S'' requires backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Reusing existing backend
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''1'' (0x31), Length=4
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''2'' (0x32), Length=4
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''T'' (0x54), Length=31
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''D'' (0x44), Length=14
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''C'' (0x43), Length=13
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f sent message: Type=''Z'' (0x5A), Length=5
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] RFQ(Idle). Backend 5d91ba1a-c527-4754-a657-c4ea8b31038f свободен! Возвращаем в стойло.
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Получено сообщение от клиента: Type=''X'' (0x58), Length=4
+[23:43:08 DBG] [Session c80cb4a0-e227-4fd0-8cd0-544a00872e0c] Клиент вежливо попрощался (Celebrate).
+[23:43:08 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 66MB. Handles: 490
+[23:43:09 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:10 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:11 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:12 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:13 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:14 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:15 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:16 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:17 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:18 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 490
+[23:43:19 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 490
+[23:43:20 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 490
+[23:43:21 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 490
+[23:43:22 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 487
+[23:43:23 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 487
+[23:43:24 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 487
+[23:43:25 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:26 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:27 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:28 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:29 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:30 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:31 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:32 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:33 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:34 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:35 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:36 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:37 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:38 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:39 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:40 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:41 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 487
+[23:43:42 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:43 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:44 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490
+[23:43:45 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 64MB. Handles: 490

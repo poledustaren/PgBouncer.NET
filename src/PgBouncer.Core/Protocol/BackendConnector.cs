@@ -39,7 +39,7 @@ public class BackendConnector
             _logger?.LogInformation("Подключаемся к PostgreSQL {Host}:{Port}...", _config.Host, _config.Port);
 
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(10)); // 10 секунд на подключение
+            cts.CancelAfter(TimeSpan.FromSeconds(15)); // 15 секунд на подключение
 
             try
             {
@@ -79,6 +79,44 @@ public class BackendConnector
             if (messageType == 'R') // AuthenticationRequest
             {
                 _logger?.LogInformation("Получен AuthenticationRequest, обрабатываем...");
+                
+                // Check if ReadyForQuery is already in the buffer (along with auth response)
+                // PostgreSQL may send: AuthOk + ParameterStatus + BackendKeyData + ReadyForQuery in one packet
+                if (bytesRead > 9)
+                {
+                    var authType = (AuthenticationType)BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(5));
+                    _logger?.LogInformation("Auth type: {AuthType}, bytes read: {BytesRead}, first message length: {Length}", authType, bytesRead, length);
+                    
+                    if (authType == AuthenticationType.Ok)
+                    {
+                        // Check remaining buffer for ReadyForQuery
+                        var offset = 1 + length; // Skip first message (AuthenticationOk)
+                        _logger?.LogInformation("Checking buffer from offset {Offset} for ReadyForQuery...", offset);
+                        
+                        while (offset < bytesRead)
+                        {
+                            if (offset + 5 > bytesRead) 
+                            {
+                                _logger?.LogInformation("Not enough data at offset {Offset}, breaking", offset);
+                                break;
+                            }
+                            var nextType = (char)buffer[offset];
+                            var nextLength = BinaryPrimitives.ReadInt32BigEndian(buffer.AsSpan(offset + 1));
+                            
+                            _logger?.LogInformation("Found message type '{NextType}' (0x{NextTypeHex:X2}) at offset {Offset}, length {NextLength}", nextType, (byte)nextType, offset, nextLength);
+                            
+                            if (nextType == 'Z') // ReadyForQuery found in buffer!
+                            {
+                                _logger?.LogInformation("SUCCESS: ReadyForQuery found in initial buffer!");
+                                return (socket, stream);
+                            }
+                            offset += 1 + nextLength;
+                        }
+                        
+                        _logger?.LogInformation("ReadyForQuery not found in buffer, will wait for more data...");
+                    }
+                }
+                
                 await HandleAuthenticationAsync(stream, buffer, bytesRead, username, password, cancellationToken);
             }
             else if (messageType == 'E') // ErrorResponse

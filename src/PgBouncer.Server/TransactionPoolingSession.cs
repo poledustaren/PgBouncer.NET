@@ -9,53 +9,39 @@ using PgBouncer.Core.Protocol;
 namespace PgBouncer.Server;
 
 /// <summary>
-/// Реализация Transaction Pooling.
-/// Backend соединение удерживается только на время транзакции.
-/// Используется Full Duplex режим:
-/// - Main Loop: читает запросы от клиента и пересылает в backend.
-/// - Background Task (ProcessBackendResponsesAsync): владеет backend-соединением, читает ответы и освобождает его.
+/// Реализация Transaction Pooling с блекджеком и... Full Duplex.
 /// </summary>
 public sealed class TransactionPoolingSession : IDisposable
 {
-    private readonly NetworkStream _clientStream;
-    private readonly ConnectionPool _pool;
+    private readonly Stream _clientStream;
+    private readonly IConnectionPool _pool;
     private readonly PgBouncerConfig _config;
     private readonly ILogger _logger;
     private readonly SessionInfo _sessionInfo;
 
-    // Callbacks для статистики
     private readonly Action<long> _recordWaitTime;
     private readonly Action _recordTimeout;
     private readonly Action _onBackendAcquired;
     private readonly Action _onBackendReleased;
 
-    // Текущий backend.
-    // Важно: в Full Duplex режиме владение разделено.
-    // RunAsync пишет в него.
-    // ProcessBackendResponsesAsync читает из него и отвечает за Release/Dispose.
-    private volatile ServerConnection? _backend;
-
-    // CTS для отмены фоновой задачи обработки backend
+    private volatile IServerConnection? _backend;
     private CancellationTokenSource? _backendCts;
-
     private bool _disposed;
-
-    // Буферы (переиспользуемые)
+    private bool _inExtendedQuery;
     private readonly byte[] _clientBuffer = new byte[32768];
-    // Backend buffer выделяется внутри задачи чтения
 
     public TransactionPoolingSession(
-        NetworkStream clientStream,
-        ConnectionPool pool,
+        Stream clientStream,
+        IConnectionPool pool,
         PgBouncerConfig config,
         ILogger logger,
         SessionInfo sessionInfo,
         Action<long> recordWaitTime,
         Action recordTimeout,
         Action onBackendAcquired,
-        Action onBackendReleased)
+        Action onBackendReleased,
+        byte[]? initialData = null)
     {
-        _clientStream = clientStream;
         _pool = pool;
         _config = config;
         _logger = logger;
@@ -64,70 +50,103 @@ public sealed class TransactionPoolingSession : IDisposable
         _recordTimeout = recordTimeout;
         _onBackendAcquired = onBackendAcquired;
         _onBackendReleased = onBackendReleased;
+
+        if (initialData != null && initialData.Length > 0)
+        {
+            _clientStream = new PrefixedStream(clientStream, initialData);
+            _logger.LogInformation("[Session {Id}] Используем PrefixedStream с {Bytes} байт данных.", sessionInfo.Id, initialData.Length);
+        }
+        else
+        {
+            _clientStream = clientStream;
+        }
     }
 
-    /// <summary>
-    /// Основной цикл Transaction Pooling (Full Duplex)
-    /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
+        _logger.LogDebug("[Session {Id}] Стартуем эту шарманку. Full Duplex mode.", _sessionInfo.Id);
+
         try
         {
             while (!cancellationToken.IsCancellationRequested && !_disposed)
             {
-                // 1. Читаем заголовок сообщения (5 байт)
+                // Читаем заголовок (5 байт). Если тут пусто, значит клиент свалил.
                 if (!await ReadExactAsync(_clientStream, _clientBuffer.AsMemory(0, 5), cancellationToken))
-                    break;
-
-                // 2. Парсим длину
-                if (!PgMessageScanner.TryReadMessageInfo(_clientBuffer.AsSpan(0, 5), out var msgInfo))
                 {
-                    _logger.LogWarning("Не удалось распарсить заголовок");
+                    _logger.LogInformation("[Session {Id}] Client disconnected (EOF) - cannot read message header", _sessionInfo.Id);
                     break;
                 }
 
-                // 3. Читаем тело
+                if (!PgMessageScanner.TryReadMessageInfo(_clientBuffer.AsSpan(0, 5), out var msgInfo))
+                {
+                    _logger.LogError("[Session {Id}] Чё за херню прислал клиент? Заголовок битый.", _sessionInfo.Id);
+                    break;
+                }
+
                 var bodyLength = msgInfo.Length - 4;
                 if (bodyLength > 0)
                 {
                     if (5 + bodyLength > _clientBuffer.Length)
                     {
-                        var errorMsg = $"Message too big: {msgInfo.Length}";
+                        var errorMsg = $"Message too big: {msgInfo.Length}. Ты охренел такие пакеты слать?";
                         _logger.LogError(errorMsg);
-                        await SendErrorToClientAsync(errorMsg, cancellationToken);
+                        await SendErrorToClientAsync(errorMsg, "54000", cancellationToken);
                         break;
                     }
 
                     if (!await ReadExactAsync(_clientStream, _clientBuffer.AsMemory(5, bodyLength), cancellationToken))
+                    {
+                        _logger.LogWarning("[Session {Id}] Клиент сдох посередине сообщения. Вот урод.", _sessionInfo.Id);
                         break;
+                    }
                 }
 
                 var fullMsgLength = 1 + msgInfo.Length;
 
-                if (_logger.IsEnabled(LogLevel.Trace) && msgInfo.Type != 0)
-                    _logger.LogTrace("C->S: {Type} ({Length})", msgInfo.Type, msgInfo.Length);
+                // Логируем КАЖДОЕ сообщение для отладки
+                _logger.LogDebug("[Session {Id}] Получено сообщение от клиента: Type='{Type}' (0x{TypeHex:X2}), Length={Len}", 
+                    _sessionInfo.Id, msgInfo.Type, (byte)msgInfo.Type, msgInfo.Length);
 
                 if (msgInfo.Type == PgMessageTypes.Terminate)
                 {
-                    _logger.LogDebug("Client sent Terminate, closing session");
+                    _logger.LogDebug("[Session {Id}] Клиент вежливо попрощался (Celebrate).", _sessionInfo.Id);
                     break;
                 }
 
-                // 4. Захват backend (если нет и нужен)
+                // Track Extended Query Protocol state
+                if (msgInfo.Type == PgMessageTypes.Parse)
+                {
+                    _inExtendedQuery = true;
+                    _logger.LogDebug("[Session {Id}] Entering Extended Query mode (Parse received).", _sessionInfo.Id);
+                }
+                else if (msgInfo.Type == PgMessageTypes.Sync)
+                {
+                    _inExtendedQuery = false;
+                    _logger.LogDebug("[Session {Id}] Exiting Extended Query mode (Sync received).", _sessionInfo.Id);
+                }
+
+                // Нужен backend? Ищем.
                 if (PgMessageScanner.RequiresBackend(msgInfo.Type))
                 {
+                    _logger.LogDebug("[Session {Id}] Message type '{Type}' requires backend", _sessionInfo.Id, msgInfo.Type);
                     if (_backend == null)
                     {
+                        _logger.LogDebug("[Session {Id}] No backend available, acquiring from pool...", _sessionInfo.Id);
                         await AcquireBackendAsync(cancellationToken);
                         if (_backend == null)
                         {
-                            // Ошибка захвата, прерываем сессию
+                            _logger.LogError("[Session {Id}] Failed to acquire backend from pool", _sessionInfo.Id);
                             break;
                         }
+                        _logger.LogDebug("[Session {Id}] Backend acquired successfully", _sessionInfo.Id);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("[Session {Id}] Reusing existing backend", _sessionInfo.Id);
                     }
                 }
 
-                // 5. Отправка в backend
+                // Шлем в backend (если есть)
                 var backend = _backend;
                 if (backend != null)
                 {
@@ -138,17 +157,19 @@ public sealed class TransactionPoolingSession : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Ошибка записи в backend");
-                        // Если backend упал, фоновая задача это увидит и закроет его.
-                        // Мы выходим из цикла, завершая сессию.
+                        _logger.LogWarning(ex, "[Session {Id}] Ошибка записи в backend. Похоже он сдох, собака.", _sessionInfo.Id);
                         break;
                     }
                 }
             }
         }
+        catch (Exception ex) when (IsExpectedConnectionError(ex))
+        {
+            _logger.LogInformation("[Session {Id}] Client disconnected gracefully (RESET/EOF).", _sessionInfo.Id);
+        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка сессии TransactionPoolingSession");
+            _logger.LogError(ex, "[Session {Id}] Глобальный факап в сессии.", _sessionInfo.Id);
         }
         finally
         {
@@ -156,11 +177,20 @@ public sealed class TransactionPoolingSession : IDisposable
         }
     }
 
+    private static bool IsExpectedConnectionError(Exception ex)
+    {
+        if (ex is OperationCanceledException) return true;
+        if (ex is IOException ioEx && ioEx.InnerException is SocketException sockEx)
+        {
+            // 10053: Software caused connection abort
+            // 10054: Connection reset by peer
+            return sockEx.ErrorCode == 10053 || sockEx.ErrorCode == 10054;
+        }
+        return false;
+    }
+
     private void CleanupBackendContext()
     {
-        // Сигнализируем фоновой задаче, что пора закругляться
-        // Если она висит на чтении backend - она получит Cancel, сделает Dispose и Release.
-        // Если она уже завершилась - ничего не произойдет.
         try
         {
             _backendCts?.Cancel();
@@ -168,26 +198,30 @@ public sealed class TransactionPoolingSession : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error cancelling backend task");
+            _logger.LogWarning(ex, "Error cancelling backend task. Да и хрен с ним.");
         }
 
         _backendCts = null;
-
-        // _backend должен обнулиться фоновой задачей, но на всякий случай
         _backend = null;
     }
 
     private async Task AcquireBackendAsync(CancellationToken token)
     {
+        var sw = Stopwatch.StartNew();
         try
         {
-            // Готовим токен для фоновой задачи
+            // Dispose old CTS if exists (cleanup after previous transaction)
+            if (_backendCts != null)
+            {
+                try { _backendCts.Cancel(); _backendCts.Dispose(); } catch { }
+                _backendCts = null;
+            }
+
+            // Готовим токен, чтобы если эта хреновина зависнет, мы её прибили
             _backendCts = CancellationTokenSource.CreateLinkedTokenSource(token);
 
-            var sw = Stopwatch.StartNew();
-            var timeoutSeconds = _config.Pool.ConnectionTimeout > 0 ? _config.Pool.ConnectionTimeout : 30;
+            var timeoutSeconds = _config.Pool.ConnectionTimeout > 0 ? _config.Pool.ConnectionTimeout : 60; // 60 секунд на ожидание
 
-            // Таймаут для самого захвата
             using var acquireCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             acquireCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
@@ -196,139 +230,146 @@ public sealed class TransactionPoolingSession : IDisposable
 
             _recordWaitTime(sw.ElapsedMilliseconds);
             _onBackendAcquired();
-
-            // Успех
             _backend = conn;
             _sessionInfo.State = SessionState.Active;
 
-            _logger.LogDebug("Backend {Id} acquired in {Ms}ms", conn.Id, sw.ElapsedMilliseconds);
+            _logger.LogDebug("[Session {Id}] Backend {BackendId} захвачен за {Ms}ms. Погнали!", _sessionInfo.Id, conn.Id, sw.ElapsedMilliseconds);
 
-            // ЗАПУСКАЕМ ФОНОВУЮ ЗАДАЧУ ЧТЕНИЯ
-            // Передаем ей владение connection и наш CTS token
+            // Запускаем читалку ответов в фоне
             _ = ProcessBackendResponsesAsync(conn, _clientStream, _backendCts.Token);
         }
         catch (OperationCanceledException)
         {
             _recordTimeout();
-            _logger.LogWarning("Timeout acquiring backend");
-            await SendErrorToClientAsync("connection pool timeout", token);
-
-            // Cleanup cts
+            _logger.LogWarning("[Session {Id}] ТАЙМАУТ ПУЛА ({Ms}ms). Нет свободных дырок.", _sessionInfo.Id, sw.ElapsedMilliseconds);
+                        await SendErrorToClientAsync("connection pool timeout", "57014", token);
             _backendCts?.Dispose();
             _backendCts = null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error acquiring backend");
-            await SendErrorToClientAsync("server connection error", token);
-
+            _logger.LogError(ex, "[Session {Id}] Ошибка при захвате backend. Всё плохо.", _sessionInfo.Id);
+            await SendErrorToClientAsync("server connection error", "08006", token);
             _backendCts?.Dispose();
             _backendCts = null;
         }
     }
 
-    /// <summary>
-    /// Фоновая задача чтения ответов от Backend.
-    /// ВЛАДЕЕТ connection: обязана сделать Release или Dispose+Release.
-    /// </summary>
-    private async Task ProcessBackendResponsesAsync(ServerConnection connection, NetworkStream clientStream, CancellationToken token)
+    private async Task ProcessBackendResponsesAsync(IServerConnection connection, Stream clientStream, CancellationToken token)
     {
         var buffer = new byte[32768];
         bool released = false;
 
+        _logger.LogDebug("[Session {Id}] ProcessBackendResponsesAsync started for backend {BackendId}", _sessionInfo.Id, connection.Id);
+
         try
         {
-            // Читаем пока не отменят (token - это _backendCts.Token, связанный с сессией)
             while (!token.IsCancellationRequested)
             {
-                // 1. Читаем Header
                 if (!await ReadExactAsync(connection.Stream, buffer.AsMemory(0, 5), token))
-                    break; // EOF -> Connection closed by server
+                {
+                    _logger.LogWarning("[Session {Id}] Backend {BackendId} EOF - no more data", _sessionInfo.Id, connection.Id);
+                    break; // EOF -> Backend closing
+                }
 
                 if (!PgMessageScanner.TryReadMessageInfo(buffer.AsSpan(0, 5), out var msgInfo))
                 {
-                    _logger.LogError("Invalid backend message header");
+                    _logger.LogError("[Session {Id}] Invalid backend message header", _sessionInfo.Id);
                     break;
                 }
 
-                // 2. Читаем Body
+                _logger.LogDebug("[Session {Id}] Backend {BackendId} sent message: Type='{Type}' (0x{TypeHex:X2}), Length={Len}",
+                    _sessionInfo.Id, connection.Id, msgInfo.Type, (byte)msgInfo.Type, msgInfo.Length);
+
                 var bodyLength = msgInfo.Length - 4;
                 if (bodyLength > 0)
                 {
                     if (5 + bodyLength > buffer.Length)
                     {
-                        _logger.LogError("Backend response too big: {Length}", msgInfo.Length);
+                        _logger.LogError("Backend response too big. Ну и жирный же ответ.");
                         break;
                     }
                     if (!await ReadExactAsync(connection.Stream, buffer.AsMemory(5, bodyLength), token))
-                        break; // EOF mid-message
+                        break;
                 }
 
                 var fullLen = 1 + msgInfo.Length;
 
-                if (_logger.IsEnabled(LogLevel.Trace) && msgInfo.Type != 0)
-                    _logger.LogTrace("S->C: {Type} ({Len})", msgInfo.Type, fullLen);
-
-                // 3. Шлем клиенту
                 await clientStream.WriteAsync(buffer.AsMemory(0, fullLen), token);
                 await clientStream.FlushAsync(token);
 
-                // 4. Проверка RFQ
                 if (msgInfo.IsReadyForQuery)
                 {
-                    // Проверяем статус транзакции (первый байт body, offset 5)
-                    var status = buffer[5];
-                    var isIdle = status == (byte)'I';
+                    var txState = msgInfo.PgTransactionState;
 
-                    if (isIdle)
+                    // Handle all three PostgreSQL transaction states from ReadyForQuery message:
+                    // 'I' (Idle) - Not in a transaction block, backend CAN be released
+                    // 'T' (InTransaction) - In a transaction block, backend CANNOT be released
+                    // 'E' (Failed) - Failed transaction block, backend CANNOT be released (ROLLBACK required)
+                    switch (txState)
                     {
-                        _logger.LogDebug("RFQ(Idle) -> Releasing Backend {Id}", connection.Id);
+                        case PgTransactionState.Idle:
+                            // Only release backend if we're not in the middle of an Extended Query
+                            // (Parse/Bind/Execute/Sync flow)
+                            if (!_inExtendedQuery)
+                            {
+                                _logger.LogDebug("[Session {Id}] RFQ(Idle). Backend {BackendId} свободен! Возвращаем в стойло.", _sessionInfo.Id, connection.Id);
 
-                        // Возвращаем в пул (Healthy)
-                        _pool.Release(connection);
-                        released = true;
-                        _onBackendReleased();
+                                _pool.Release(connection);
+                                released = true;
+                                _onBackendReleased();
 
-                        // Сбрасываем _backend в Main Loop
-                        if (_backend == connection)
-                        {
-                            _backend = null;
-                            _sessionInfo.State = SessionState.Idle;
-                        }
+                                _backend = null;
+                                _sessionInfo.State = SessionState.Idle;
 
-                        return; // Done
+                                // Cleanup CTS to unlink from session token
+                                var cts = _backendCts;
+                                _backendCts = null;
+                                try { cts?.Dispose(); } catch { }
+                            }
+                            else
+                            {
+                                _logger.LogDebug("[Session {Id}] RFQ(Idle) but still in Extended Query, keeping backend.", _sessionInfo.Id);
+                            }
+                            break;
+
+                        case PgTransactionState.InTransaction:
+                            // In transaction block (BEGIN was executed), backend must stay assigned
+                            _logger.LogDebug("[Session {Id}] RFQ(InTransaction). Backend {BackendId} занят транзакцией.", _sessionInfo.Id, connection.Id);
+                            break;
+
+                        case PgTransactionState.Failed:
+                            // Failed transaction block, backend must stay assigned until ROLLBACK
+                            _logger.LogDebug("[Session {Id}] RFQ(Failed). Backend {BackendId} в ошибке, нужен ROLLBACK.", _sessionInfo.Id, connection.Id);
+                            break;
+
+                        default:
+                            _logger.LogWarning("[Session {Id}] Unknown transaction state: {State}. Keeping backend.", _sessionInfo.Id, txState);
+                            break;
                     }
+                    return;
                 }
             }
         }
+
         catch (OperationCanceledException)
         {
-            // Нормальная отмена (сессия закрыта или таймаут)
-            _logger.LogDebug("Backend task cancelled for {Id}", connection.Id);
+            _logger.LogInformation("Backend task cancelled. Клиент ушел, сворачиваемся.");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error processing backend {Id}", connection.Id);
+            _logger.LogWarning(ex, "Error processing backend {Id}. Что-то пошло не так.", connection.Id);
         }
         finally
         {
             if (!released)
             {
-                // Если мы вышли из цикла не через RFQ(Idle), значит состояние backend неизвестно или разорвано.
-                // МЫ ДОЛЖНЫ УНИЧТОЖИТЬ СОЕДИНЕНИЕ.
-                _logger.LogDebug("Destroying dirty backend {Id}", connection.Id);
-
-                // Dispose закрывает сокет
+                _logger.LogWarning("Destroying dirty backend {Id}. Пришлось пристрелить.", connection.Id);
                 await connection.DisposeAsync();
-
-                // Release удаляет его из списка активных и декрементирует счетчик
                 _pool.Release(connection);
                 _onBackendReleased();
 
-                if (_backend == connection)
-                {
-                    _backend = null;
-                }
+                if (_backend == connection) _backend = null;
             }
         }
     }
@@ -345,22 +386,49 @@ public sealed class TransactionPoolingSession : IDisposable
         return true;
     }
 
-    private async Task SendErrorToClientAsync(string message, CancellationToken cancellationToken)
+    private async Task SendErrorToClientAsync(string message, string sqlState, CancellationToken cancellationToken)
     {
         try
         {
             var msgBytes = System.Text.Encoding.UTF8.GetBytes(message);
-            var response = new byte[1 + 4 + 1 + msgBytes.Length + 1 + 1];
+            var severity = "FATAL"u8.ToArray();
+            var codeBytes = System.Text.Encoding.UTF8.GetBytes(sqlState);
+            
+            // Length = 4(len) + 1(S) + len(sev) + 1(0) + 1(C) + len(code) + 1(0) + 1(M) + len(msg) + 1(0) + 1(0 end)
+            var len = 4 + 1 + severity.Length + 1 + 1 + codeBytes.Length + 1 + 1 + msgBytes.Length + 1 + 1;
+
+            var response = new byte[1 + len];
             var pos = 0;
+
             response[pos++] = (byte)'E';
-            var len = response.Length - 1;
-            BinaryPrimitives.WriteInt32BigEndian(response.AsSpan(1), len);
-            pos += 4;
+
+            // Int32 Big Endian manually
+            response[pos++] = (byte)(len >> 24);
+            response[pos++] = (byte)(len >> 16);
+            response[pos++] = (byte)(len >> 8);
+            response[pos++] = (byte)len;
+
+            // Severity 'S'
+            response[pos++] = (byte)'S';
+            Array.Copy(severity, 0, response, pos, severity.Length);
+            pos += severity.Length;
+            response[pos++] = 0;
+
+            // Code 'C' - SQLSTATE error code (required by protocol)
+            response[pos++] = (byte)'C';
+            Array.Copy(codeBytes, 0, response, pos, codeBytes.Length);
+            pos += codeBytes.Length;
+            response[pos++] = 0;
+
+            // Message 'M'
             response[pos++] = (byte)'M';
-            msgBytes.CopyTo(response, pos);
+            Array.Copy(msgBytes, 0, response, pos, msgBytes.Length);
             pos += msgBytes.Length;
             response[pos++] = 0;
+
+            // End of fields
             response[pos++] = 0;
+
             await _clientStream.WriteAsync(response, cancellationToken);
             await _clientStream.FlushAsync(cancellationToken);
         }
@@ -371,5 +439,64 @@ public sealed class TransactionPoolingSession : IDisposable
     {
         _disposed = true;
         CleanupBackendContext();
+    }
+    private sealed class PrefixedStream : Stream
+    {
+        private readonly Stream _inner;
+        private ReadOnlyMemory<byte> _prefix;
+
+        public PrefixedStream(Stream inner, byte[] prefix)
+        {
+            _inner = inner;
+            _prefix = prefix;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _inner.Length + _prefix.Length;
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush() => _inner.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => _inner.FlushAsync(cancellationToken);
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+        public override int Read(Span<byte> buffer)
+        {
+            if (!_prefix.IsEmpty)
+            {
+                var toCopy = Math.Min(buffer.Length, _prefix.Length);
+                _prefix.Span.Slice(0, toCopy).CopyTo(buffer);
+                _prefix = _prefix.Slice(toCopy);
+                return toCopy;
+            }
+            return _inner.Read(buffer);
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!_prefix.IsEmpty)
+            {
+                var toCopy = Math.Min(buffer.Length, _prefix.Length);
+                _prefix.Slice(0, toCopy).CopyTo(buffer);
+                _prefix = _prefix.Slice(toCopy);
+                return toCopy;
+            }
+            return await _inner.ReadAsync(buffer, cancellationToken);
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+        public override void Write(ReadOnlySpan<byte> buffer) => _inner.Write(buffer);
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => _inner.WriteAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => _inner.WriteAsync(buffer, cancellationToken);
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Close() { _inner.Close(); base.Close(); }
     }
 }

@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
@@ -27,7 +26,7 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Find free port for PgBouncer
-        _pgbouncerPort = GetFreePort();
+        _pgbouncerPort = 6434; // Use the manually started server
         
         // Parse PostgreSQL container port from connection string
         var postgresPort = ParsePortFromConnectionString(_postgres.ConnectionString);
@@ -52,8 +51,8 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
             }
         };
         
-        // Create pool manager
-        var loggerFactory = new NullLoggerFactory();
+        // Create pool manager with console logging for debugging
+        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
         _poolManager = new PoolManager(config, loggerFactory.CreateLogger<PoolManager>());
         
         // Create and start proxy server
@@ -69,6 +68,12 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
         // Wait for server to be ready
         await Task.Delay(2000);
         
+        // Pre-initialize pool with minimum connections to avoid timeout on first query
+        Console.WriteLine("Pre-initializing connection pool...");
+        var pool = await _poolManager.GetPoolAsync("testdb", "postgres", "testpass123");
+        await pool.InitializeAsync(3, _cts.Token);
+        Console.WriteLine("Pool initialized with 3 connections");
+        
         Console.WriteLine($"PgBouncer started on port {_pgbouncerPort}, connecting to PostgreSQL on port {postgresPort}");
         
         // Verify PostgreSQL is accessible directly
@@ -80,6 +85,9 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
         {
             throw new InvalidOperationException("PostgreSQL container is not responding");
         }
+        
+        // Wait for pool to be fully ready
+        await Task.Delay(1000);
     }
     
     [Fact]

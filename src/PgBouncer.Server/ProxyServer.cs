@@ -108,7 +108,7 @@ public class ProxyServer : IDisposable
     {
         _listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _listenerSocket.Bind(new IPEndPoint(IPAddress.Any, _config.ListenPort));
-        _listenerSocket.Listen(128);
+        _listenerSocket.Listen(500); // Backlog increased for stress test
 
         _logger.LogInformation("PgBouncer.NET запущен на порту {Port}", _config.ListenPort);
 
@@ -147,10 +147,8 @@ public class ProxyServer : IDisposable
             {
                 var clientSocket = await _listenerSocket!.AcceptAsync(cancellationToken);
 
-                _logger.LogInformation("Новое клиентское соединение от {RemoteEndPoint}",
-                    clientSocket.RemoteEndPoint);
-
                 // Обрабатываем каждого клиента в отдельной задаче
+                // Логгирование перенесено внутрь, чтобы не тормозить Accept loop
                 _ = Task.Run(async () => await HandleClientAsync(clientSocket, cancellationToken),
                     cancellationToken);
             }

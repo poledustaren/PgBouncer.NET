@@ -9,15 +9,25 @@ using PgBouncer.Core.Pooling;
 using PgBouncer.Server;
 using System.Text.Json;
 
+// Генерация уникального ID запуска для логов
+var runId = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
+
 // Настройка Serilog
 Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
     .WriteTo.Console()
-    .WriteTo.File("logs/pgbouncer-.txt", rollingInterval: RollingInterval.Day)
+    .WriteTo.File($"logs/log_{runId}.txt", rollingInterval: RollingInterval.Infinite)
     .CreateLogger();
+
+Log.Information($"=== ЗАПУСК PgBouncer.NET. RunID: {runId} ===");
 
 try
 {
     Log.Information("Запуск PgBouncer.NET...");
+
+    // БЛ*ТЬ, НУЖНО БОЛЬШЕ ПОТОКОВ ДЛЯ СТРЕСС-ТЕСТА!
+    // Дефолтный пул растет слишком медленно, и мы ловим таймауты на старте как лохи.
+    ThreadPool.SetMinThreads(1000, 1000);
 
     var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog();
@@ -37,6 +47,7 @@ try
     // Прокси-сервер
     builder.Services.AddSingleton<ProxyServer>();
     builder.Services.AddHostedService<ProxyServerHostedService>();
+    builder.Services.AddHostedService<MetricsMonitorService>();
 
     // Controllers и Swagger
     builder.Services.AddControllers();
@@ -142,5 +153,44 @@ class ProxyServerHostedService : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         await _proxyServer.StopAsync();
+    }
+}
+
+public class MetricsMonitorService : BackgroundService
+{
+    private readonly ILogger<MetricsMonitorService> _logger;
+
+    public MetricsMonitorService(ILogger<MetricsMonitorService> logger)
+    {
+        _logger = logger;
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("MONITOR STARTED");
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                ThreadPool.GetAvailableThreads(out var workerThreads, out var completionPortThreads);
+                ThreadPool.GetMaxThreads(out var maxWorkerThreads, out var maxCompletionPortThreads);
+                ThreadPool.GetMinThreads(out var minWorkerThreads, out var minCompletionPortThreads);
+
+                var process = System.Diagnostics.Process.GetCurrentProcess();
+
+                _logger.LogInformation(
+                    "[MONITOR] Threads: W={Worker}/{MinWorker}/{MaxWorker}, IO={IO}/{MinIO}/{MaxIO}. RAM: {RAM}MB. Handles: {Handles}",
+                    maxWorkerThreads - workerThreads, minWorkerThreads, maxWorkerThreads,
+                    maxCompletionPortThreads - completionPortThreads, minCompletionPortThreads, maxCompletionPortThreads,
+                    process.WorkingSet64 / 1024 / 1024,
+                    process.HandleCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Monitor failed");
+            }
+
+            await Task.Delay(1000, stoppingToken);
+        }
     }
 }

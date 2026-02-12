@@ -12,7 +12,7 @@ namespace PgBouncer.Core.Pooling;
 /// - Zero-allocation ожидание
 /// - Bounded capacity
 /// </summary>
-public class ConnectionPool : IDisposable
+public class ConnectionPool : IConnectionPool
 {
     private readonly string _database;
     private readonly string _username;
@@ -22,10 +22,15 @@ public class ConnectionPool : IDisposable
     private readonly ILogger? _logger;
 
     // Channel обеспечивает FIFO и async wait без SemaphoreSlim overhead
-    private readonly Channel<ServerConnection> _idleChannel;
-    private readonly ConcurrentDictionary<Guid, ServerConnection> _activeConnections = new();
+    private readonly Channel<IServerConnection> _idleChannel;
+    private readonly ConcurrentDictionary<Guid, IServerConnection> _activeConnections = new();
     private readonly Timer? _idleCleanupTimer;
-    private readonly SemaphoreSlim _createLock = new(1, 1);
+    // Ограничиваем количество одновременных попыток подключения (Handshakes)
+    // 50 слотов, чтобы быстрее прогреваться.
+    private readonly SemaphoreSlim _createLock = new(50, 50);
+    
+    // Circuit breaker for handling failed connections
+    private readonly CircuitBreaker _circuitBreaker;
 
     private int _currentSize;
     private long _totalAcquired;
@@ -46,6 +51,9 @@ public class ConnectionPool : IDisposable
         _backendConfig = backendConfig;
         _poolConfig = poolConfig;
         _logger = logger;
+        _circuitBreaker = new CircuitBreaker(
+            failureThreshold: 3,
+            resetTimeoutSeconds: 30);
 
         // Создаём bounded channel с FIFO семантикой
         var options = new BoundedChannelOptions(poolConfig.MaxSize)
@@ -55,7 +63,7 @@ public class ConnectionPool : IDisposable
             SingleWriter = false,
             AllowSynchronousContinuations = false
         };
-        _idleChannel = Channel.CreateBounded<ServerConnection>(options);
+        _idleChannel = Channel.CreateBounded<IServerConnection>(options);
 
         // Запускаем таймер для очистки idle соединений
         if (poolConfig.IdleTimeout > 0)
@@ -69,15 +77,63 @@ public class ConnectionPool : IDisposable
     }
 
     /// <summary>
+    /// Асинхронная инициализация пула - создает минимальное количество соединений
+    /// </summary>
+    public async Task InitializeAsync(int minConnections, CancellationToken cancellationToken = default)
+    {
+        _logger?.LogInformation("Initializing pool with {MinConnections} minimum connections...", minConnections);
+        
+        for (int i = 0; i < minConnections; i++)
+        {
+            try
+            {
+                _logger?.LogInformation("Creating connection {Current}/{Total}...", i + 1, minConnections);
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                cts.CancelAfter(TimeSpan.FromSeconds(30));
+                
+                var connection = await CreateConnectionAsync(cts.Token);
+                _logger?.LogInformation("Connection created successfully: {ConnectionId}", connection.Id);
+                
+                if (_idleChannel.Writer.TryWrite(connection))
+                {
+                    Interlocked.Increment(ref _currentSize);
+                    _logger?.LogInformation("Connection {ConnectionId} added to idle channel. Pool size: {Size}", connection.Id, _currentSize);
+                }
+                else
+                {
+                    _logger?.LogError("Failed to add connection to idle channel - channel is full!");
+                    await connection.DisposeAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to create connection {Current}/{Total}: {Message}", i + 1, minConnections, ex.Message);
+            }
+        }
+        
+        _logger?.LogInformation("Pool initialized with {CurrentSize} connections", _currentSize);
+    }
+
+    /// <summary>
     /// Получить соединение из пула (zero-allocation при наличии idle)
     /// </summary>
-    public async ValueTask<ServerConnection> AcquireAsync(CancellationToken cancellationToken = default)
+    public async Task<IServerConnection> AcquireAsync(CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref _totalAcquired);
 
         // 1. Пытаемся взять из idle (zero-alloc fast path)
         while (_idleChannel.Reader.TryRead(out var connection))
         {
+            // Check circuit breaker
+            if (!_circuitBreaker.IsAllowed(connection.Id))
+            {
+                _logger?.LogWarning("Circuit breaker open for connection {ConnectionId}, skipping",
+                    connection.Id);
+                // Put it back and try next
+                await _idleChannel.Writer.WriteAsync(connection, cancellationToken);
+                continue;
+            }
+
             if (connection.IsHealthy)
             {
                 _activeConnections[connection.Id] = connection;
@@ -98,15 +154,26 @@ public class ConnectionPool : IDisposable
         {
             try
             {
-                var newConnection = await CreateConnectionAsync(cancellationToken);
-                _activeConnections[newConnection.Id] = newConnection;
-                _logger?.LogInformation("Создано соединение {ConnectionId} для {Database}/{User} (всего: {Total})",
-                    newConnection.Id, _database, _username, currentSize);
-                return newConnection;
+                // Ждём слот на создание (троттлинг)
+                await _createLock.WaitAsync(cancellationToken);
+                try
+                {
+                    var newConnection = await CreateConnectionAsync(cancellationToken);
+                    _activeConnections[newConnection.Id] = newConnection;
+                    _logger?.LogInformation("Создано соединение {ConnectionId} для {Database}/{User} (всего: {Total})",
+                        newConnection.Id, _database, _username, currentSize);
+                    return newConnection;
+                }
+                finally
+                {
+                    _createLock.Release();
+                }
             }
             catch
             {
                 Interlocked.Decrement(ref _currentSize);
+                // Backoff to prevent storm. 200ms is enough if we fail fast.
+                await Task.Delay(200, cancellationToken);
                 throw;
             }
         }
@@ -115,9 +182,10 @@ public class ConnectionPool : IDisposable
         Interlocked.Decrement(ref _currentSize);
         _logger?.LogDebug("Лимит пула достигнут ({Max}), ожидание...", _poolConfig.MaxSize);
 
-        // Добавляем таймаут чтобы не ждать вечно
+        // Увеличиваем таймаут ожидания соединения из пула (дефолт 60с)
+        var waitTimeout = _poolConfig.ConnectionTimeout > 0 ? _poolConfig.ConnectionTimeout : 60;
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(_poolConfig.ConnectionTimeout > 0 ? _poolConfig.ConnectionTimeout : 30));
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(waitTimeout));
 
         try
         {
@@ -137,15 +205,15 @@ public class ConnectionPool : IDisposable
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // Наш таймаут сработал, а не внешний cancellation
-            _logger?.LogWarning("Таймаут ожидания соединения из пула ({Timeout}s)", _poolConfig.ConnectionTimeout);
-            throw new TimeoutException($"Не удалось получить соединение из пула за {_poolConfig.ConnectionTimeout} секунд");
+            _logger?.LogWarning("Таймаут ожидания соединения из пула ({Timeout}s)", waitTimeout);
+            throw new TimeoutException($"Не удалось получить соединение из пула за {waitTimeout} секунд");
         }
     }
 
     /// <summary>
     /// Вернуть соединение в пул (zero-allocation)
     /// </summary>
-    public void Release(ServerConnection connection)
+    public void Release(IServerConnection connection)
     {
         Interlocked.Increment(ref _totalReleased);
 
@@ -177,15 +245,32 @@ public class ConnectionPool : IDisposable
         }
     }
 
+    public void RecordSuccess(Guid connectionId)
+    {
+        _circuitBreaker.RecordSuccess(connectionId);
+        _logger?.LogTrace("Connection {ConnectionId} recorded as successful", connectionId);
+    }
+
+    public void RecordFailure(Guid connectionId)
+    {
+        _circuitBreaker.RecordFailure(connectionId);
+        _logger?.LogWarning("Connection {ConnectionId} recorded as failed", connectionId);
+    }
+
     /// <summary>
     /// Создать новое соединение к PostgreSQL
     /// </summary>
-    private async Task<ServerConnection> CreateConnectionAsync(CancellationToken cancellationToken)
+    private async Task<IServerConnection> CreateConnectionAsync(CancellationToken cancellationToken)
     {
+        _logger?.LogInformation("[CreateConnection] Starting connection to {Host}:{Port} for database {Database}, user {User}",
+            _backendConfig.Host, _backendConfig.Port, _database, _username);
+
         var connector = new Protocol.BackendConnector(_backendConfig, _logger);
 
         try
         {
+            _logger?.LogDebug("[CreateConnection] Calling ConnectAndAuthenticateAsync...");
+
             // Подключаемся и проходим аутентификацию
             var (socket, stream) = await connector.ConnectAndAuthenticateAsync(
                 _database,
@@ -193,16 +278,19 @@ public class ConnectionPool : IDisposable
                 _password,
                 cancellationToken);
 
+            _logger?.LogDebug("[CreateConnection] ConnectAndAuthenticateAsync succeeded, creating ServerConnection...");
+
             // Создаем соединение с полученным сокетом и стримом
             var connection = new ServerConnection(socket, stream, _database, _username);
 
-            _logger?.LogInformation("Соединение {Id} успешно аутентифицировано", connection.Id);
+            _logger?.LogInformation("[CreateConnection] SUCCESS: Connection {Id} created and authenticated", connection.Id);
 
             return connection;
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, "Ошибка подключения к {Host}:{Port}", _backendConfig.Host, _backendConfig.Port);
+            _logger?.LogError(ex, "[CreateConnection] FAILED: Error connecting to {Host}:{Port} - {Message}",
+                _backendConfig.Host, _backendConfig.Port, ex.Message);
             throw;
         }
     }
@@ -215,7 +303,7 @@ public class ConnectionPool : IDisposable
         if (_disposed) return;
 
         var idleTimeout = _poolConfig.IdleTimeout;
-        var toKeep = new List<ServerConnection>();
+        var toKeep = new List<IServerConnection>();
         var removedCount = 0;
 
         // Вычитываем все из канала
@@ -290,66 +378,6 @@ public class ConnectionPool : IDisposable
         }
 
         _createLock.Dispose();
-    }
-}
-
-/// <summary>
-/// Серверное соединение к PostgreSQL
-/// </summary>
-public class ServerConnection : IAsyncDisposable
-{
-    public Guid Id { get; } = Guid.NewGuid();
-    public string Database { get; }
-    public string Username { get; }
-
-    private readonly Socket _socket;
-    private readonly NetworkStream _stream;
-    private readonly bool _ownsSocket;
-    private DateTime _lastActivity;
-
-    public ServerConnection(Socket socket, string database, string username)
-    {
-        _socket = socket;
-        _stream = new NetworkStream(socket, ownsSocket: false);
-        _ownsSocket = true;
-        Database = database;
-        Username = username;
-        _lastActivity = DateTime.UtcNow;
-    }
-
-    /// <summary>
-    /// Конструктор с готовым NetworkStream (после аутентификации)
-    /// </summary>
-    public ServerConnection(Socket socket, NetworkStream stream, string database, string username)
-    {
-        _socket = socket;
-        _stream = stream;
-        _ownsSocket = false; // stream уже владеет сокетом
-        Database = database;
-        Username = username;
-        _lastActivity = DateTime.UtcNow;
-    }
-
-    public bool IsHealthy => _socket.Connected;
-
-    public NetworkStream Stream => _stream;
-
-    public void UpdateActivity()
-    {
-        _lastActivity = DateTime.UtcNow;
-    }
-
-    /// <summary>Время последней активности</summary>
-    public DateTime LastActivity => _lastActivity;
-
-    /// <summary>Проверяет истек ли idle timeout</summary>
-    public bool IsIdle(int idleTimeoutSeconds) =>
-        (DateTime.UtcNow - _lastActivity).TotalSeconds > idleTimeoutSeconds;
-
-    public async ValueTask DisposeAsync()
-    {
-        await _stream.DisposeAsync();
-        _socket.Dispose();
     }
 }
 

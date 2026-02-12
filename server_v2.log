@@ -1,0 +1,623 @@
+[12:21:55 INF] === ЗАПУСК PgBouncer.NET. RunID: 2026-02-12_12-21-55 ===
+[12:21:55 INF] Запуск PgBouncer.NET...
+[12:21:55 DBG] Registered model binder providers, in the following order: ["Microsoft.AspNetCore.Mvc.ModelBinding.Binders.BinderTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ServicesModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.BodyModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.HeaderModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FloatingPointTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.EnumTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.DateTimeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.SimpleTypeModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.TryParseModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.CancellationTokenModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ByteArrayModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FormFileModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.FormCollectionModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.KeyValuePairModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.DictionaryModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ArrayModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.CollectionModelBinderProvider", "Microsoft.AspNetCore.Mvc.ModelBinding.Binders.ComplexObjectModelBinderProvider"]
+
+╔══════════════════════════════════════════════════════════╗
+║                   PgBouncer.NET                          ║
+╚══════════════════════════════════════════════════════════╝
+
+  Прокси:     localhost:6434
+  Dashboard:  http://localhost:5081/
+  API:        http://localhost:5081/api/stats
+  Backend:    127.0.0.1:5437
+
+[12:21:55 DBG] Hosting starting
+[12:21:55 INF] Лимит backend соединений: 90
+[12:21:55 INF] PgBouncer.NET запущен на порту 6434
+[12:21:55 INF] MONITOR STARTED
+[12:21:55 INF] [MONITOR] Threads: W=0/1000/32767, IO=0/1000/1000. RAM: 51MB. Handles: 454
+[12:21:55 INF] Now listening on: http://0.0.0.0:5081
+[12:21:55 DBG] Loaded hosting startup assembly PgBouncer.Server
+[12:21:55 INF] Application started. Press Ctrl+C to shut down.
+[12:21:55 INF] Hosting environment: Development
+[12:21:55 INF] Content root path: C:\Projects\pgbouncer.net\src\PgBouncer.Server
+[12:21:55 DBG] Hosting started
+[12:21:56 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 56MB. Handles: 477
+[12:21:57 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:21:58 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:21:59 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:00 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:01 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:02 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:03 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:04 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:05 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 57MB. Handles: 477
+[12:22:06 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[12:22:07 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[12:22:08 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[12:22:09 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 58MB. Handles: 477
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Создание нового пула для postgres/postgres
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] [Session 4476f485-c305-46f9-9fa4-1f79323a73d8] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] [Session bc93168c-752e-4ccd-be80-f86353623a74] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] [Session ff8cd1c5-fbd5-46f8-8159-e2703b4a4e26] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 INF] [Session 937f4ed1-3245-435a-93fd-de314584b0b1] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 DBG] === НОВАЯ СЕССИЯ ===
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] [Session f6f2467e-0f92-409b-8d78-ce4ffc19eb55] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 DBG] SSLRequest -> отвечаем 'N'
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] >>> postgres/postgres
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] === TRANSACTION POOLING MODE ===
+[12:22:10 INF] [Session d8d5428b-1853-4343-93ed-70497c9cf93e] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] Getting pool for postgres/postgres...
+[12:22:10 INF] [Session f198f864-a656-41c4-9607-392bc57aba82] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 INF] Sending AuthOk + ReadyForQuery...
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 DBG] Отправлены AuthOk + ParameterStatus + ReadyForQuery клиенту
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] AuthOk sent. Starting TransactionPoolingSession...
+[12:22:10 INF] [Session 1989cc74-71b5-4736-a724-324a27a0cb5b] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 INF] [Session 4939b14a-d73a-4953-a4e4-c5459bf481b8] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Client->Backend: Type=''Q'', State=Idle, Size=3597
+[12:22:10 INF] [CreateConnection] Starting connection to 127.0.0.1:5437 for database postgres, user postgres
+[12:22:10 DBG] [CreateConnection] Calling ConnectAndAuthenticateAsync...
+[12:22:10 INF] Подключаемся к PostgreSQL 127.0.0.1:5437...
+[12:22:10 INF] Подключено к PostgreSQL 127.0.0.1:5437
+[12:22:10 INF] Отправлен StartupMessage для postgres/postgres
+[12:22:10 INF] Ожидание ответа от PostgreSQL...
+[12:22:10 INF] Получено 409 байт от PostgreSQL
+[12:22:10 INF] Получен AuthenticationRequest, обрабатываем...
+[12:22:10 INF] Auth type: Ok, bytes read: 409, first message length: 8
+[12:22:10 INF] Checking buffer from offset 9 for ReadyForQuery...
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 9, length 35
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 45, length 25
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 71, length 23
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 95, length 38
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 134, length 23
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 158, length 25
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 184, length 27
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 212, length 20
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 233, length 25
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 259, length 25
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 285, length 35
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 321, length 35
+[12:22:10 INF] Found message type ''S'' (0x53) at offset 357, length 32
+[12:22:10 INF] Found message type ''K'' (0x4B) at offset 390, length 12
+[12:22:10 INF] Found message type ''Z'' (0x5A) at offset 403, length 5
+[12:22:10 INF] SUCCESS: ReadyForQuery found in initial buffer!
+[12:22:10 DBG] [CreateConnection] ConnectAndAuthenticateAsync succeeded, creating ServerConnection...
+[12:22:10 INF] [CreateConnection] SUCCESS: Connection e688a04f-c14e-4b9d-9eed-c8077c20e7c6 created and authenticated
+[12:22:10 INF] Создано соединение e688a04f-c14e-4b9d-9eed-c8077c20e7c6 для postgres/postgres (всего: 1)
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend acquired: e688a04f-c14e-4b9d-9eed-c8077c20e7c6 in 28ms
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''T'', Size=33
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=70
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''C'', Size=14
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''T'', Size=165
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=52
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=52
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=48
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=48
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=48
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=48
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=62
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=52
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=52
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=52
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=50
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=51
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=68
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=75
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=49
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=64
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=63
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=74
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=73
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=69
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=70
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=72
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=71
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=57
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=53
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=57
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=57
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=54
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=63
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=55
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=64
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=63
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=64
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=64
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=56
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=58
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=57
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=63
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=60
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=59
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=61
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=66
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=65
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=64
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=66
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=66
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=66
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=77
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=76
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=76
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''D'', Size=72
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''C'', Size=16
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''T'', Size=82
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''C'', Size=14
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''T'', Size=57
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''C'', Size=14
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend->Client: Type=''Z'', Size=6
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] ReadyForQuery: Status=''I''
+[12:22:10 DBG] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Backend released: e688a04f-c14e-4b9d-9eed-c8077c20e7c6
+[12:22:10 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 540
+[12:22:11 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 540
+[12:22:12 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 540
+[12:22:13 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 541
+[12:22:14 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 542
+[12:22:15 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 543
+[12:22:16 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 544
+[12:22:17 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 545
+[12:22:18 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 546
+[12:22:19 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 546
+[12:22:20 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 546
+[12:22:21 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 548
+[12:22:22 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 548
+[12:22:23 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 65MB. Handles: 548
+[12:22:24 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 66MB. Handles: 548
+[12:22:25 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 68MB. Handles: 550
+[12:22:26 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 68MB. Handles: 550
+[12:22:27 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 69MB. Handles: 550
+[12:22:28 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 69MB. Handles: 550
+[12:22:29 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 69MB. Handles: 550
+[12:22:30 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 69MB. Handles: 540
+[12:22:31 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 540
+[12:22:32 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 540
+[12:22:33 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 540
+[12:22:35 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 542
+[12:22:36 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 542
+[12:22:37 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 542
+[12:22:38 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 545
+[12:22:39 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 545
+[12:22:40 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 67MB. Handles: 545
+[12:22:40 ERR] [Session 4476f485-c305-46f9-9fa4-1f79323a73d8] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session 937f4ed1-3245-435a-93fd-de314584b0b1] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session f198f864-a656-41c4-9607-392bc57aba82] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session f6f2467e-0f92-409b-8d78-ce4ffc19eb55] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session bc93168c-752e-4ccd-be80-f86353623a74] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session ff8cd1c5-fbd5-46f8-8159-e2703b4a4e26] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session d8d5428b-1853-4343-93ed-70497c9cf93e] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session 1989cc74-71b5-4736-a724-324a27a0cb5b] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 ERR] [Session 4939b14a-d73a-4953-a4e4-c5459bf481b8] Session error
+System.IO.IOException: Unable to read data from the transport connection: Удаленный хост принудительно разорвал существующее подключение..
+ ---> System.Net.Sockets.SocketException (10054): Удаленный хост принудительно разорвал существующее подключение.
+   --- End of inner exception stack trace ---
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.ThrowException(SocketError error, CancellationToken cancellationToken)
+   at System.Net.Sockets.Socket.AwaitableSocketAsyncEventArgs.System.Threading.Tasks.Sources.IValueTaskSource<System.Int32>.GetResult(Int16 token)
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadExactAsync(Stream stream, Memory`1 buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 492
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ReadMessageAsync(Stream stream, Byte[] buffer, CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 464
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.ClientReaderLoopAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 148
+   at PgBouncer.Server.EnhancedTransactionPoolingSessionV2.RunAsync(CancellationToken cancellationToken) in C:\Projects\pgbouncer.net\src\PgBouncer.Server\EnhancedTransactionPoolingSessionV2.cs:line 113
+[12:22:40 INF] [Session 4476f485-c305-46f9-9fa4-1f79323a73d8] Session cleaned up
+[12:22:40 INF] [Session 937f4ed1-3245-435a-93fd-de314584b0b1] Session cleaned up
+[12:22:40 INF] [Session f6f2467e-0f92-409b-8d78-ce4ffc19eb55] Session cleaned up
+[12:22:40 INF] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Session cleaned up
+[12:22:40 INF] [Session f198f864-a656-41c4-9607-392bc57aba82] Session cleaned up
+[12:22:40 INF] [Session bc93168c-752e-4ccd-be80-f86353623a74] Session cleaned up
+[12:22:40 INF] [Session ff8cd1c5-fbd5-46f8-8159-e2703b4a4e26] Session cleaned up
+[12:22:40 INF] [Session d8d5428b-1853-4343-93ed-70497c9cf93e] Session cleaned up
+[12:22:40 INF] [Session 1989cc74-71b5-4736-a724-324a27a0cb5b] Session cleaned up
+[12:22:40 INF] [Session 4939b14a-d73a-4953-a4e4-c5459bf481b8] Session cleaned up
+[12:22:40 INF] [Session bc93168c-752e-4ccd-be80-f86353623a74] Session cleaned up
+[12:22:40 INF] [Session 4476f485-c305-46f9-9fa4-1f79323a73d8] Session cleaned up
+[12:22:40 INF] [Session ff8cd1c5-fbd5-46f8-8159-e2703b4a4e26] Session cleaned up
+[12:22:40 INF] [Session f6f2467e-0f92-409b-8d78-ce4ffc19eb55] Session cleaned up
+[12:22:40 INF] [Session 4939b14a-d73a-4953-a4e4-c5459bf481b8] Session cleaned up
+[12:22:40 INF] [Session d8d5428b-1853-4343-93ed-70497c9cf93e] Session cleaned up
+[12:22:40 INF] [Session 1989cc74-71b5-4736-a724-324a27a0cb5b] Session cleaned up
+[12:22:40 INF] [Session 5bff2f07-d185-4d16-b9a0-6131de5713d6] Session cleaned up
+[12:22:40 INF] [Session f198f864-a656-41c4-9607-392bc57aba82] Session cleaned up
+[12:22:40 INF] [Session 937f4ed1-3245-435a-93fd-de314584b0b1] Session cleaned up
+[12:22:41 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 566
+[12:22:42 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 566
+[12:22:43 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 566
+[12:22:44 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 566
+[12:22:45 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 566
+[12:22:46 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 566
+[12:22:47 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 567
+[12:22:48 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 74MB. Handles: 567
+[12:22:49 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 567
+[12:22:50 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 564
+[12:22:51 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 564
+[12:22:52 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 565
+[12:22:53 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 566
+[12:22:54 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 566
+[12:22:55 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 75MB. Handles: 566
+[12:22:56 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 570
+[12:22:57 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 570
+[12:22:58 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 570
+[12:22:59 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 570
+[12:23:00 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 570
+[12:23:01 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 563
+[12:23:02 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 563
+[12:23:03 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 563
+[12:23:04 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 563
+[12:23:05 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 563
+[12:23:06 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 564
+[12:23:07 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 564
+[12:23:08 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 76MB. Handles: 564
+[12:23:09 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 564
+[12:23:10 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 564
+[12:23:11 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 564
+[12:23:12 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 567
+[12:23:13 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 567
+[12:23:14 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 568
+[12:23:15 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 77MB. Handles: 566
+[12:23:16 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 567
+[12:23:17 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 568
+[12:23:18 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 568
+[12:23:19 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 565
+[12:23:20 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 565
+[12:23:21 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 565
+[12:23:22 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 566
+[12:23:23 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 78MB. Handles: 566
+[12:23:24 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 566
+[12:23:25 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 569
+[12:23:26 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 569
+[12:23:27 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 569
+[12:23:28 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 569
+[12:23:29 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 79MB. Handles: 569
+[12:23:30 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 569
+[12:23:31 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 568
+[12:23:32 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 572
+[12:23:33 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 572
+[12:23:34 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 572
+[12:23:35 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 572
+[12:23:36 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 80MB. Handles: 572
+[12:23:37 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:38 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:39 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:40 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 569
+[12:23:41 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 569
+[12:23:42 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:43 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:44 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 81MB. Handles: 572
+[12:23:46 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 575
+[12:23:47 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 572
+[12:23:48 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 572
+[12:23:49 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 572
+[12:23:50 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 572
+[12:23:51 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 575
+[12:23:52 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 82MB. Handles: 575
+[12:23:53 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:23:54 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 578
+[12:23:55 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:23:56 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:23:57 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:23:58 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:23:59 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:24:00 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 83MB. Handles: 575
+[12:24:01 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 575
+[12:24:02 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 575
+[12:24:03 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 575
+[12:24:04 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 575
+[12:24:05 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 575
+[12:24:06 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 578
+[12:24:07 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 579
+[12:24:08 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 84MB. Handles: 579
+[12:24:09 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 579
+[12:24:10 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 574
+[12:24:11 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 574
+[12:24:12 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 574
+[12:24:13 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 572
+[12:24:14 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 572
+[12:24:15 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 572
+[12:24:16 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 572
+[12:24:17 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 85MB. Handles: 572
+[12:24:18 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 572
+[12:24:19 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 572
+[12:24:20 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 575
+[12:24:21 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 578
+[12:24:22 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 578
+[12:24:23 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 578
+[12:24:24 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 86MB. Handles: 578
+[12:24:25 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 578
+[12:24:26 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 575
+[12:24:27 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 575
+[12:24:28 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 575
+[12:24:29 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 575
+[12:24:30 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 578
+[12:24:31 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 578
+[12:24:32 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 87MB. Handles: 578
+[12:24:33 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:34 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:35 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:36 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:37 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:38 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:39 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:40 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 88MB. Handles: 578
+[12:24:41 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:42 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:43 INF] [MONITOR] Threads: W=1/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:44 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:45 INF] [MONITOR] Threads: W=2/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:46 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:47 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:48 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 578
+[12:24:49 INF] [MONITOR] Threads: W=4/1000/32767, IO=0/1000/1000. RAM: 90MB. Handles: 578
+[12:24:50 INF] [MONITOR] Threads: W=3/1000/32767, IO=0/1000/1000. RAM: 89MB. Handles: 576

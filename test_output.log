@@ -1,0 +1,7 @@
+Тестовый запуск для C:\Projects\pgbouncer.net\tests\PgBouncer.Tests\bin\Debug\net9.0\PgBouncer.Tests.dll (.NETCoreApp,Version=v9.0)
+Версия VSTest 18.0.1 (x64)
+
+Запуск выполнения тестов; подождите...
+Общее количество тестовых файлов (1), соответствующих указанному шаблону.
+
+Пройден!   : не пройдено     0, пройдено     1, пропущено     0, всего     1, длительность 146 ms. - PgBouncer.Tests.dll (net9.0)

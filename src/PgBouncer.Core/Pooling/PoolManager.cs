@@ -12,7 +12,7 @@ public class PoolManager : IDisposable
     private readonly PgBouncerConfig _config;
     private readonly ILogger? _logger;
 
-    private readonly ConcurrentDictionary<string, ConnectionPool> _pools = new();
+    private readonly ConcurrentDictionary<string, IConnectionPool> _pools = new();
     private readonly SemaphoreSlim _totalConnectionsSemaphore;
 
     private int _totalConnections;
@@ -30,7 +30,7 @@ public class PoolManager : IDisposable
     /// <summary>
     /// Получить соединение для указанной БД/пользователя
     /// </summary>
-    public async Task<ServerConnection> AcquireConnectionAsync(
+    public async Task<IServerConnection> AcquireConnectionAsync(
         string database,
         string username,
         string password,
@@ -69,7 +69,7 @@ public class PoolManager : IDisposable
     /// <summary>
     /// Вернуть соединение в пул
     /// </summary>
-    public void ReleaseConnection(ServerConnection connection)
+    public void ReleaseConnection(IServerConnection connection)
     {
         var poolKey = GetPoolKey(connection.Database, connection.Username);
 
@@ -101,7 +101,7 @@ public class PoolManager : IDisposable
     /// <summary>
     /// Получить пул для database/user (для Transaction Pooling)
     /// </summary>
-    public Task<ConnectionPool> GetPoolAsync(string database, string username, string password)
+    public Task<IConnectionPool> GetPoolAsync(string database, string username, string password)
     {
         var poolKey = GetPoolKey(database, username);
         var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
@@ -111,7 +111,7 @@ public class PoolManager : IDisposable
     /// <summary>
     /// Создать новый пул
     /// </summary>
-    private ConnectionPool CreatePool(string database, string username, string password)
+    private IConnectionPool CreatePool(string database, string username, string password)
     {
         _logger?.LogInformation("Создание нового пула для {Database}/{User}", database, username);
 
