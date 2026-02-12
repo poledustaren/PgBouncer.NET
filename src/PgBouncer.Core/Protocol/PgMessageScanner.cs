@@ -28,28 +28,32 @@ public static class PgMessageTypes
     public const char Bind = 'B';            // Extended Query: Bind
     public const char Execute = 'E';         // Extended Query: Execute
     public const char Describe = 'D';        // Describe statement/portal
+    public const char Close = 'C';           // Close statement/portal (Frontend)
     public const char Sync = 'S';            // Sync (end of extended query)
+    public const char Flush = 'H';           // Flush (force data transmission)
     public const char Terminate = 'X';       // Terminate connection
     public const char CopyData = 'd';        // COPY data
     public const char CopyDone = 'c';        // COPY done
     public const char CopyFail = 'f';        // COPY failed
+    public const char PasswordMessage = 'p'; // Password/SASL response
 
     // === Backend (Server → Client) ===
     public const char Authentication = 'R';  // Auth request/response
-    public const char ParameterStatus = 'S'; // Server parameter
+    public const char ParameterStatus = 'S'; // Server parameter (конфликт с Sync от клиента!)
     public const char BackendKeyData = 'K';  // Cancellation key
     public const char ReadyForQuery = 'Z';   // Ready for next query
     public const char RowDescription = 'T';  // Column metadata
-    public const char DataRow = 'D';         // Row data (конфликт с Describe, но направление разное)
-    public const char CommandComplete = 'C'; // Command completed
+    public const char DataRow = 'D';         // Row data
+    public const char CommandComplete = 'C'; // Command completed (конфликт с Close!)
     public const char EmptyQueryResponse = 'I'; // Empty query
-    public const char ErrorResponse = 'E';   // Error
+    public const char ErrorResponse = 'E';   // Error (конфликт с Execute!)
     public const char NoticeResponse = 'N';  // Warning/notice
     public const char ParseComplete = '1';   // Parse completed
     public const char BindComplete = '2';    // Bind completed
     public const char CloseComplete = '3';   // Close completed
     public const char NoData = 'n';          // No data for Describe
     public const char PortalSuspended = 's'; // Portal suspended
+    public const char ParameterDescription = 't'; // Parameter types
 }
 
 /// <summary>
@@ -144,14 +148,31 @@ public static class PgMessageScanner
         return messageType switch
         {
             PgMessageTypes.Query => true,      // Simple Query
-            PgMessageTypes.Parse => true,      // Extended Query
-            PgMessageTypes.Bind => true,
-            PgMessageTypes.Execute => true,
-            PgMessageTypes.Describe => true,
-            PgMessageTypes.Sync => true,
-            PgMessageTypes.CopyData => true,
-            PgMessageTypes.CopyDone => true,
+            PgMessageTypes.Parse => true,      // Extended Query: Parse
+            PgMessageTypes.Bind => true,       // Extended Query: Bind
+            PgMessageTypes.Execute => true,    // Extended Query: Execute
+            PgMessageTypes.Describe => true,   // Extended Query: Describe
+            PgMessageTypes.Close => true,      // Extended Query: Close
+            PgMessageTypes.Sync => true,       // Extended Query: Sync
+            PgMessageTypes.Flush => true,      // Extended Query: Flush
+            PgMessageTypes.CopyData => true,   // COPY data
+            PgMessageTypes.CopyDone => true,   // COPY done
+            PgMessageTypes.CopyFail => true,   // COPY failed
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Проверить является ли сообщение частью Extended Query Protocol
+    /// </summary>
+    public static bool IsExtendedQueryMessage(char messageType)
+    {
+        return messageType is PgMessageTypes.Parse 
+            or PgMessageTypes.Bind 
+            or PgMessageTypes.Execute 
+            or PgMessageTypes.Describe 
+            or PgMessageTypes.Close 
+            or PgMessageTypes.Sync 
+            or PgMessageTypes.Flush;
     }
 }

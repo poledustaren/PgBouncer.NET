@@ -252,7 +252,8 @@ public class ClientSession : IDisposable
             _recordWaitTime,
             _recordTimeout,
             _onBackendAcquired,
-            _onBackendReleased);
+            _onBackendReleased,
+            initialData);
 
         await txSession.RunAsync(cancellationToken);
     }

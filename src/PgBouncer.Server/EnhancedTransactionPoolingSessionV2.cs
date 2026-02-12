@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net.Sockets;
@@ -9,10 +10,6 @@ using PgBouncer.Core.Protocol;
 
 namespace PgBouncer.Server;
 
-/// <summary>
-/// Production-ready Transaction Pooling Session with event-driven architecture
-/// Similar to original pgbouncer: event loop + channels + non-blocking I/O
-/// </summary>
 public class EnhancedTransactionPoolingSessionV2 : IDisposable
 {
     private readonly Stream _clientStream;
@@ -24,23 +21,27 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     private readonly Action _recordTimeout;
     private readonly Action _onBackendAcquired;
     private readonly Action _onBackendReleased;
+    private readonly byte[]? _initialData;
 
-    // Extended Query Protocol state
-    private enum QueryState { Idle, ParseReceived, BindReceived, ExecuteReceived, InTransaction }
-    private QueryState _queryState = QueryState.Idle;
+    private enum SessionState
+    {
+        Idle,
+        InExtendedQuery,
+        WaitingForNextMessage
+    };
+    
+    private SessionState _state = SessionState.Idle;
     private readonly List<byte[]> _pendingMessages = new();
     
-    // Backend connection
     private IServerConnection? _backend;
     private readonly object _backendLock = new();
     private volatile bool _backendAcquired;
+    private volatile bool _pendingBackendRelease;
     
-    // Channels for message passing (lock-free queues)
     private readonly Channel<byte[]> _clientToBackendChannel;
     private readonly Channel<byte[]> _backendToClientChannel;
     private readonly Channel<bool> _readyForQueryChannel;
     
-    // Cancellation
     private readonly CancellationTokenSource _sessionCts = new();
     private Task? _clientReaderTask;
     private Task? _clientWriterTask;
@@ -56,7 +57,8 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         Action<long> recordWaitTime,
         Action recordTimeout,
         Action onBackendAcquired,
-        Action onBackendReleased)
+        Action onBackendReleased,
+        byte[]? initialData = null)
     {
         _clientStream = clientStream;
         _pool = pool;
@@ -67,8 +69,8 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         _recordTimeout = recordTimeout;
         _onBackendAcquired = onBackendAcquired;
         _onBackendReleased = onBackendReleased;
+        _initialData = initialData;
 
-        // Unbounded channels for message passing
         _clientToBackendChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions
         {
             SingleReader = true,
@@ -91,36 +93,34 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("[Session {Id}] Starting EnhancedTransactionPoolingSessionV2 (Event-driven)", _sessionInfo.Id);
+        _logger.LogDebug("[Session {Id}] Starting Transaction Pooling Session V2", _sessionInfo.Id);
 
         try
         {
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _sessionCts.Token);
             var linkedToken = linkedCts.Token;
 
-            // Start four concurrent tasks:
-            // 1. Client reader - reads from client, processes protocol, sends to backend channel
-            // 2. Client writer - reads from backend channel, sends to client
-            // 3. Backend reader - reads from backend, sends to client channel
-            // 4. Backend writer - writes from client channel to actual backend
+            Stream effectiveStream = _clientStream;
+            if (_initialData != null && _initialData.Length > 0)
+            {
+                effectiveStream = new PrefixedStream(_clientStream, _initialData);
+                _logger.LogDebug("[Session {Id}] Using PrefixedStream with {Bytes} initial bytes", _sessionInfo.Id, _initialData.Length);
+            }
 
-            _clientReaderTask = ClientReaderLoopAsync(linkedToken);
+            _clientReaderTask = ClientReaderLoopAsync(effectiveStream, linkedToken);
             _clientWriterTask = ClientWriterLoopAsync(linkedToken);
             _backendReaderTask = BackendReaderLoopAsync(linkedToken);
             _backendWriterTask = BackendWriterLoopAsync(linkedToken);
 
-            // Wait for any task to complete or fail
             var completedTask = await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendReaderTask, _backendWriterTask);
             
-            // If any task failed, propagate exception
-            await completedTask;
+            try { await completedTask; } catch { }
             
-            // Wait for others to complete gracefully
             await Task.WhenAll(
-                AwaitWithTimeout(_clientReaderTask, TimeSpan.FromSeconds(5)),
-                AwaitWithTimeout(_clientWriterTask, TimeSpan.FromSeconds(5)),
-                AwaitWithTimeout(_backendReaderTask, TimeSpan.FromSeconds(5)),
-                AwaitWithTimeout(_backendWriterTask, TimeSpan.FromSeconds(5))
+                AwaitWithTimeout(_clientReaderTask, TimeSpan.FromSeconds(3)),
+                AwaitWithTimeout(_clientWriterTask, TimeSpan.FromSeconds(3)),
+                AwaitWithTimeout(_backendReaderTask, TimeSpan.FromSeconds(3)),
+                AwaitWithTimeout(_backendWriterTask, TimeSpan.FromSeconds(3))
             );
         }
         catch (OperationCanceledException)
@@ -137,56 +137,65 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         }
     }
 
-    /// <summary>
-    /// Client Reader Loop: Reads messages from client, handles Extended Query Protocol, sends to backend channel
-    /// </summary>
-    private async Task ClientReaderLoopAsync(CancellationToken cancellationToken)
+    private async Task ClientReaderLoopAsync(Stream clientStream, CancellationToken cancellationToken)
     {
-        var buffer = new byte[65536];
+        var buffer = ArrayPool<byte>.Shared.Rent(65536);
         
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Read message from client
-                var message = await ReadMessageAsync(_clientStream, buffer, cancellationToken);
-                if (message == null) break;
+                var message = await ReadMessageAsync(clientStream, buffer, cancellationToken);
+                if (message == null)
+                {
+                    _logger.LogDebug("[Session {Id}] Client disconnected", _sessionInfo.Id);
+                    break;
+                }
 
                 var msgType = (char)message[0];
-                _logger.LogDebug("[Session {Id}] Client->Backend: Type='{Type}', State={State}, Size={Size}",
-                    _sessionInfo.Id, msgType, _queryState, message.Length);
+                _logger.LogDebug("[Session {Id}] Client->: Type='{Type}', State={State}",
+                    _sessionInfo.Id, msgType, _state);
 
-                // Handle Extended Query Protocol state machine
                 switch (msgType)
                 {
-                    case 'P': // Parse
-                        await HandleParseMessageAsync(message, cancellationToken);
+                    case PgMessageTypes.Parse:
+                        await HandleParseAsync(message, cancellationToken);
                         break;
 
-                    case 'B': // Bind
-                        HandleBindMessage(message);
+                    case PgMessageTypes.Bind:
+                        HandleBind(message);
                         break;
 
-                    case 'E': // Execute
-                        HandleExecuteMessage(message);
+                    case PgMessageTypes.Execute:
+                        HandleExecute(message);
                         break;
 
-                    case 'S': // Sync
-                        await HandleSyncMessageAsync(message, cancellationToken);
+                    case PgMessageTypes.Describe:
+                        HandleDescribe(message);
                         break;
 
-                    case 'Q': // Simple Query
+                    case PgMessageTypes.Close:
+                        await HandleCloseAsync(message, cancellationToken);
+                        break;
+
+                    case PgMessageTypes.Sync:
+                        await HandleSyncAsync(message, cancellationToken);
+                        break;
+
+                    case PgMessageTypes.Flush:
+                        await HandleFlushAsync(message, cancellationToken);
+                        break;
+
+                    case PgMessageTypes.Query:
                         await HandleSimpleQueryAsync(message, cancellationToken);
                         break;
 
-                    case 'X': // Terminate
+                    case PgMessageTypes.Terminate:
                         _logger.LogDebug("[Session {Id}] Client sent Terminate", _sessionInfo.Id);
                         return;
 
                     default:
-                        // Other messages - forward directly
-                        await EnsureBackendAsync(cancellationToken);
-                        await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
+                        await HandleOtherMessageAsync(message, cancellationToken);
                         break;
                 }
             }
@@ -198,26 +207,22 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Client reader error", _sessionInfo.Id);
-            throw;
         }
         finally
         {
-            _clientToBackendChannel.Writer.Complete();
+            ArrayPool<byte>.Shared.Return(buffer);
+            _clientToBackendChannel.Writer.TryComplete();
         }
     }
 
-    /// <summary>
-    /// Backend Reader Loop: Reads responses from backend, forwards to client channel
-    /// </summary>
     private async Task BackendReaderLoopAsync(CancellationToken cancellationToken)
     {
-        var buffer = new byte[65536];
+        var buffer = ArrayPool<byte>.Shared.Rent(65536);
         
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                // Wait for backend to be available
                 IServerConnection? backend;
                 lock (_backendLock)
                 {
@@ -226,32 +231,29 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
                 if (backend == null)
                 {
-                    await Task.Delay(10, cancellationToken);
+                    await Task.Delay(5, cancellationToken);
                     continue;
                 }
 
-                // Read message from backend
                 var message = await ReadMessageAsync(backend.Stream, buffer, cancellationToken);
                 if (message == null)
                 {
                     _logger.LogWarning("[Session {Id}] Backend disconnected", _sessionInfo.Id);
                     _pool.RecordFailure(backend.Id);
-                    await ReleaseBackendAsync();
+                    await DestroyBackendAsync();
                     continue;
                 }
 
                 var msgType = (char)message[0];
-                _logger.LogDebug("[Session {Id}] Backend->Client: Type='{Type}', Size={Size}",
-                    _sessionInfo.Id, msgType, message.Length);
+                _logger.LogDebug("[Session {Id}] Backend->: Type='{Type}'",
+                    _sessionInfo.Id, msgType);
 
-                // Check for ReadyForQuery
-                if (msgType == 'Z')
+                if (msgType == PgMessageTypes.ReadyForQuery)
                 {
                     var status = message.Length > 5 ? message[5] : (byte)'I';
                     await HandleReadyForQueryAsync(status, cancellationToken);
                 }
 
-                // Forward to client
                 await _backendToClientChannel.Writer.WriteAsync(message, cancellationToken);
             }
         }
@@ -262,17 +264,14 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Backend reader error", _sessionInfo.Id);
-            throw;
         }
         finally
         {
-            _backendToClientChannel.Writer.Complete();
+            ArrayPool<byte>.Shared.Return(buffer);
+            _backendToClientChannel.Writer.TryComplete();
         }
     }
 
-    /// <summary>
-    /// Backend Writer Loop: Writes messages from client channel to actual backend
-    /// </summary>
     private async Task BackendWriterLoopAsync(CancellationToken cancellationToken)
     {
         try
@@ -287,7 +286,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
                 if (backend == null)
                 {
-                    _logger.LogError("[Session {Id}] No backend available for writing", _sessionInfo.Id);
+                    _logger.LogWarning("[Session {Id}] No backend for writing, message dropped", _sessionInfo.Id);
                     continue;
                 }
 
@@ -295,10 +294,6 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
                 {
                     await backend.Stream.WriteAsync(message, cancellationToken);
                     await backend.Stream.FlushAsync(cancellationToken);
-                    
-                    var msgType = (char)message[0];
-                    _logger.LogTrace("[Session {Id}] Written to backend: Type='{Type}'", 
-                        _sessionInfo.Id, msgType);
                 }
                 catch (Exception ex)
                 {
@@ -315,35 +310,17 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Backend writer error", _sessionInfo.Id);
-            throw;
         }
     }
 
-    /// <summary>
-    /// Client Writer Loop: Reads messages from backend channel and writes to client
-    /// </summary>
     private async Task ClientWriterLoopAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("[Session {Id}] ClientWriterLoop starting", _sessionInfo.Id);
-        
         try
         {
             await foreach (var message in _backendToClientChannel.Reader.ReadAllAsync(cancellationToken))
             {
-                try
-                {
-                    await _clientStream.WriteAsync(message, cancellationToken);
-                    await _clientStream.FlushAsync(cancellationToken);
-                    
-                    var msgType = (char)message[0];
-                    _logger.LogDebug("[Session {Id}] Written to client: Type='{Type}'", 
-                        _sessionInfo.Id, msgType);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[Session {Id}] Failed to write to client", _sessionInfo.Id);
-                    throw;
-                }
+                await _clientStream.WriteAsync(message, cancellationToken);
+                await _clientStream.FlushAsync(cancellationToken);
             }
         }
         catch (ChannelClosedException)
@@ -353,94 +330,146 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Client writer error", _sessionInfo.Id);
-            throw;
         }
     }
 
-    // Extended Query Protocol Handlers
-
-    private async Task HandleParseMessageAsync(byte[] message, CancellationToken cancellationToken)
+    private async Task HandleParseAsync(byte[] message, CancellationToken cancellationToken)
     {
-        if (_queryState != QueryState.Idle)
+        if (_pendingBackendRelease)
         {
-            _logger.LogWarning("[Session {Id}] Parse in wrong state: {State}", _sessionInfo.Id, _queryState);
+            _logger.LogTrace("[Session {Id}] Reusing backend for next Extended Query batch", _sessionInfo.Id);
+            _pendingBackendRelease = false;
         }
-
+        
         await EnsureBackendAsync(cancellationToken);
         _pendingMessages.Clear();
         _pendingMessages.Add(message);
-        _queryState = QueryState.ParseReceived;
+        _state = SessionState.InExtendedQuery;
     }
 
-    private void HandleBindMessage(byte[] message)
+    private void HandleBind(byte[] message)
     {
-        if (_queryState != QueryState.ParseReceived)
+        _pendingMessages.Add(message);
+    }
+
+    private void HandleExecute(byte[] message)
+    {
+        _pendingMessages.Add(message);
+    }
+
+    private void HandleDescribe(byte[] message)
+    {
+        if (_state == SessionState.Idle)
         {
-            _logger.LogWarning("[Session {Id}] Bind in wrong state: {State}", _sessionInfo.Id, _queryState);
+            _pendingMessages.Clear();
+            _state = SessionState.InExtendedQuery;
         }
         _pendingMessages.Add(message);
-        _queryState = QueryState.BindReceived;
     }
 
-    private void HandleExecuteMessage(byte[] message)
+    private async Task HandleCloseAsync(byte[] message, CancellationToken cancellationToken)
     {
-        if (_queryState != QueryState.BindReceived)
+        if (_pendingBackendRelease && _backendAcquired)
         {
-            _logger.LogWarning("[Session {Id}] Execute in wrong state: {State}", _sessionInfo.Id, _queryState);
+            _logger.LogTrace("[Session {Id}] Sending Close to backend before release", _sessionInfo.Id);
+            await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
+            return;
         }
+        
         _pendingMessages.Add(message);
-        _queryState = QueryState.ExecuteReceived;
     }
 
-    private async Task HandleSyncMessageAsync(byte[] message, CancellationToken cancellationToken)
+    private async Task HandleSyncAsync(byte[] message, CancellationToken cancellationToken)
     {
         _pendingMessages.Add(message);
         
-        _logger.LogDebug("[Session {Id}] Flushing {Count} messages to backend", 
-            _sessionInfo.Id, _pendingMessages.Count);
+        _logger.LogTrace("[Session {Id}] Sync: flushing {Count} messages", _sessionInfo.Id, _pendingMessages.Count);
 
-        // Send all buffered messages
         foreach (var msg in _pendingMessages)
         {
             await _clientToBackendChannel.Writer.WriteAsync(msg, cancellationToken);
         }
         _pendingMessages.Clear();
 
-        // Wait for ReadyForQuery
-        await _readyForQueryChannel.Reader.ReadAsync(cancellationToken);
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            await _readyForQueryChannel.Reader.ReadAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("[Session {Id}] Timeout waiting for ReadyForQuery", _sessionInfo.Id);
+        }
         
-        _queryState = QueryState.Idle;
+        _state = SessionState.WaitingForNextMessage;
+    }
+
+    private async Task HandleFlushAsync(byte[] message, CancellationToken cancellationToken)
+    {
+        if (_pendingMessages.Count > 0)
+        {
+            foreach (var msg in _pendingMessages)
+            {
+                await _clientToBackendChannel.Writer.WriteAsync(msg, cancellationToken);
+            }
+            _pendingMessages.Clear();
+        }
+        
+        await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
     }
 
     private async Task HandleSimpleQueryAsync(byte[] message, CancellationToken cancellationToken)
     {
-        await EnsureBackendAsync(cancellationToken);
+        if (_pendingBackendRelease)
+        {
+            _logger.LogTrace("[Session {Id}] Simple Query after ReadyForQuery, releasing backend", _sessionInfo.Id);
+            await ReleaseBackendAsync();
+        }
         
-        // For simple queries, send immediately and wait
+        await EnsureBackendAsync(cancellationToken);
         await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
-        await _readyForQueryChannel.Reader.ReadAsync(cancellationToken);
+        
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+            await _readyForQueryChannel.Reader.ReadAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("[Session {Id}] Timeout waiting for ReadyForQuery after Query", _sessionInfo.Id);
+        }
+        
+        _state = SessionState.WaitingForNextMessage;
+    }
+
+    private async Task HandleOtherMessageAsync(byte[] message, CancellationToken cancellationToken)
+    {
+        if (_pendingBackendRelease)
+        {
+            _logger.LogTrace("[Session {Id}] Non-Extended Query message after ReadyForQuery, releasing backend", _sessionInfo.Id);
+            await ReleaseBackendAsync();
+            _state = SessionState.Idle;
+        }
+        
+        if (PgMessageScanner.RequiresBackend((char)message[0]))
+        {
+            await EnsureBackendAsync(cancellationToken);
+        }
+        
+        await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
     }
 
     private async Task HandleReadyForQueryAsync(byte status, CancellationToken cancellationToken)
     {
-        _logger.LogDebug("[Session {Id}] ReadyForQuery: Status='{Status}'", 
-            _sessionInfo.Id, (char)status);
+        _logger.LogTrace("[Session {Id}] ReadyForQuery: Status='{Status}'", _sessionInfo.Id, (char)status);
 
-        // Signal that ReadyForQuery received
         await _readyForQueryChannel.Writer.WriteAsync(true, cancellationToken);
 
-        switch (status)
+        if (status == 'I')
         {
-            case (byte)'I': // Idle - can release backend
-                _onBackendReleased();
-                await ReleaseBackendAsync();
-                _queryState = QueryState.Idle;
-                break;
-
-            case (byte)'T': // In transaction
-            case (byte)'E': // Failed transaction
-                _queryState = QueryState.InTransaction;
-                break;
+            _pendingBackendRelease = true;
         }
     }
 
@@ -465,6 +494,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             {
                 _backend = backend;
                 _backendAcquired = true;
+                _pendingBackendRelease = false;
             }
             
             sw.Stop();
@@ -490,19 +520,39 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             backend = _backend;
             _backend = null;
             _backendAcquired = false;
+            _pendingBackendRelease = false;
         }
 
         if (backend != null)
         {
             _pool.Release(backend);
-            _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", 
-                _sessionInfo.Id, backend.Id);
+            _onBackendReleased();
+            _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", _sessionInfo.Id, backend.Id);
+        }
+    }
+
+    private async Task DestroyBackendAsync()
+    {
+        IServerConnection? backend;
+        lock (_backendLock)
+        {
+            backend = _backend;
+            _backend = null;
+            _backendAcquired = false;
+            _pendingBackendRelease = false;
+        }
+
+        if (backend != null)
+        {
+            await backend.DisposeAsync();
+            _pool.Release(backend);
+            _onBackendReleased();
+            _logger.LogDebug("[Session {Id}] Backend destroyed: {BackendId}", _sessionInfo.Id, backend.Id);
         }
     }
 
     private async Task<byte[]?> ReadMessageAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
     {
-        // Read header (5 bytes)
         if (!await ReadExactAsync(stream, buffer.AsMemory(0, 5), cancellationToken))
             return null;
 
@@ -548,7 +598,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     {
         if (await Task.WhenAny(task, Task.Delay(timeout)) == task)
         {
-            await task;
+            try { await task; } catch { }
         }
     }
 
@@ -564,7 +614,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
         try { await _clientStream.DisposeAsync(); } catch { }
         
-        _logger.LogInformation("[Session {Id}] Session cleaned up", _sessionInfo.Id);
+        _logger.LogDebug("[Session {Id}] Session cleaned up", _sessionInfo.Id);
     }
 
     public void Dispose()
@@ -572,5 +622,65 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         _sessionCts.Cancel();
         CleanupAsync().GetAwaiter().GetResult();
         _sessionCts.Dispose();
+    }
+    
+    private sealed class PrefixedStream : Stream
+    {
+        private readonly Stream _inner;
+        private ReadOnlyMemory<byte> _prefix;
+
+        public PrefixedStream(Stream inner, byte[] prefix)
+        {
+            _inner = inner;
+            _prefix = prefix;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => _inner.Length + _prefix.Length;
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override void Flush() => _inner.Flush();
+        public override Task FlushAsync(CancellationToken cancellationToken) => _inner.FlushAsync(cancellationToken);
+
+        public override int Read(byte[] buffer, int offset, int count) => Read(buffer.AsSpan(offset, count));
+        public override int Read(Span<byte> buffer)
+        {
+            if (!_prefix.IsEmpty)
+            {
+                var toCopy = Math.Min(buffer.Length, _prefix.Length);
+                _prefix.Span.Slice(0, toCopy).CopyTo(buffer);
+                _prefix = _prefix.Slice(toCopy);
+                return toCopy;
+            }
+            return _inner.Read(buffer);
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (!_prefix.IsEmpty)
+            {
+                var toCopy = Math.Min(buffer.Length, _prefix.Length);
+                _prefix.Slice(0, toCopy).CopyTo(buffer);
+                _prefix = _prefix.Slice(toCopy);
+                return toCopy;
+            }
+            return await _inner.ReadAsync(buffer, cancellationToken);
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count) => _inner.Write(buffer, offset, count);
+        public override void Write(ReadOnlySpan<byte> buffer) => _inner.Write(buffer);
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => _inner.WriteAsync(buffer, offset, count, cancellationToken);
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default) => _inner.WriteAsync(buffer, cancellationToken);
+
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Close() { _inner.Close(); base.Close(); }
     }
 }
