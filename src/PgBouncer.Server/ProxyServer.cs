@@ -108,12 +108,30 @@ public class ProxyServer : IDisposable
     {
         _listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _listenerSocket.Bind(new IPEndPoint(IPAddress.Any, _config.ListenPort));
-        _listenerSocket.Listen(500); // Backlog increased for stress test
+        _listenerSocket.Listen(500);
 
         _logger.LogInformation("PgBouncer.NET запущен на порту {Port}", _config.ListenPort);
 
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _acceptTask = AcceptConnectionsAsync(_cts.Token);
+
+        if (_config.Pool.MinSize > 0)
+        {
+            _logger.LogInformation("Starting connection warming with {MinSize} connections...", _config.Pool.MinSize);
+            try
+            {
+                await _poolManager.WarmupAsync(
+                    "postgres",
+                    _config.Backend.AdminUser,
+                    _config.Backend.AdminPassword,
+                    _config.Pool.MinSize,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Connection warming failed, will create connections on demand");
+            }
+        }
 
         await Task.CompletedTask;
     }
@@ -134,6 +152,35 @@ public class ProxyServer : IDisposable
         }
 
         _logger.LogInformation("PgBouncer.NET остановлен");
+    }
+
+    /// <summary>
+    /// Graceful shutdown - ждёт завершения активных сессий
+    /// </summary>
+    public async Task ShutdownAsync(TimeSpan? timeout = null)
+    {
+        timeout ??= TimeSpan.FromSeconds(30);
+        _logger.LogInformation("Graceful shutdown initiated. Waiting for {ActiveSessions} active sessions (timeout: {Timeout}s)",
+            _activeSessions, timeout.Value.TotalSeconds);
+
+        _cts?.Cancel();
+        _listenerSocket?.Close();
+
+        var startTime = DateTime.UtcNow;
+        while (_activeSessions > 0 && (DateTime.UtcNow - startTime) < timeout.Value)
+        {
+            _logger.LogDebug("Waiting for {ActiveSessions} active sessions to complete...", _activeSessions);
+            await Task.Delay(100);
+        }
+
+        if (_activeSessions > 0)
+        {
+            _logger.LogWarning("Graceful shutdown timeout. {ActiveSessions} sessions still active, forcing close.", _activeSessions);
+        }
+
+        _poolManager.Dispose();
+
+        _logger.LogInformation("PgBouncer.NET shutdown complete");
     }
 
     /// <summary>

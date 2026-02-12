@@ -1,5 +1,3 @@
-using System.IO;
-
 namespace PgBouncer.Core.Pooling;
 
 public interface IServerConnection : IAsyncDisposable
@@ -12,5 +10,6 @@ public interface IServerConnection : IAsyncDisposable
     DateTime LastActivity { get; }
 
     void UpdateActivity();
+    void MarkDirty();
     bool IsIdle(int idleTimeoutSeconds);
 }

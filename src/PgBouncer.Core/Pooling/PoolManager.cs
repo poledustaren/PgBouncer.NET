@@ -109,6 +109,24 @@ public class PoolManager : IDisposable
     }
 
     /// <summary>
+    /// Предсоздать соединения для пула (connection warming)
+    /// </summary>
+    public async Task WarmupAsync(string database, string username, string password, int minConnections, CancellationToken cancellationToken = default)
+    {
+        var poolKey = GetPoolKey(database, username);
+        var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));
+        
+        _logger?.LogInformation("Warming up pool {PoolKey} with {MinConnections} connections...", poolKey, minConnections);
+        
+        if (pool is ConnectionPool connectionPool)
+        {
+            await connectionPool.InitializeAsync(minConnections, cancellationToken);
+        }
+        
+        _logger?.LogInformation("Pool {PoolKey} warmup complete", poolKey);
+    }
+
+    /// <summary>
     /// Создать новый пул
     /// </summary>
     private IConnectionPool CreatePool(string database, string username, string password)
