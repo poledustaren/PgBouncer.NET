@@ -40,7 +40,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     private int _backendGeneration;
     
     private readonly Channel<byte[]> _clientToBackendChannel;
-    private readonly Channel<byte[]> _backendToClientChannel;
+    private readonly Channel<(byte[] Message, int Generation)> _backendToClientChannel;
     private readonly Channel<bool> _readyForQueryChannel;
     
     private readonly CancellationTokenSource _sessionCts = new();
@@ -78,7 +78,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             SingleWriter = true
         });
 
-        _backendToClientChannel = Channel.CreateUnbounded<byte[]>(new UnboundedChannelOptions
+        _backendToClientChannel = Channel.CreateUnbounded<(byte[] Message, int Generation)>(new UnboundedChannelOptions
         {
             SingleReader = true,
             SingleWriter = true
@@ -267,7 +267,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
                     await HandleReadyForQueryAsync(status, cancellationToken);
                 }
 
-                await _backendToClientChannel.Writer.WriteAsync(message, cancellationToken);
+                await _backendToClientChannel.Writer.WriteAsync((message, readGeneration), cancellationToken);
             }
         }
         catch (ChannelClosedException)
@@ -329,8 +329,21 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     {
         try
         {
-            await foreach (var message in _backendToClientChannel.Reader.ReadAllAsync(cancellationToken))
+            await foreach (var (message, gen) in _backendToClientChannel.Reader.ReadAllAsync(cancellationToken))
             {
+                int currentGen;
+                lock (_backendLock)
+                {
+                    currentGen = _backendGeneration;
+                }
+                
+                if (gen != currentGen)
+                {
+                    _logger.LogTrace("[Session {Id}] Discarding stale message from gen {OldGen} (current: {CurGen})", 
+                        _sessionInfo.Id, gen, currentGen);
+                    continue;
+                }
+                
                 await _clientStream.WriteAsync(message, cancellationToken);
                 await _clientStream.FlushAsync(cancellationToken);
             }
