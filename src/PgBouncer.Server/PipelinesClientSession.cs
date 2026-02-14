@@ -374,6 +374,7 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
 
         // Send AuthOk and ReadyForQuery to client
         await SendAuthOkAndReadyAsync(cancellationToken);
+        IsAuthenticated = true;
 
         // Start the loops
         _clientWriterTask = ClientWriterLoopAsync(cancellationToken);

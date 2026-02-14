@@ -14,7 +14,7 @@ public class ConfigurationTests
         var config = new PgBouncerConfig();
 
         // Assert
-        config.ListenPort.Should().Be(6432);
+        config.ListenPort.Should().Be(6442);
         config.Pool.MaxSize.Should().BeGreaterThan(0);
     }
 
@@ -25,8 +25,8 @@ public class ConfigurationTests
         var config = new PgBouncerConfig();
 
         // Assert
-        config.Backend.Host.Should().Be("localhost");
-        config.Backend.Port.Should().Be(5432);
+        config.Backend.Host.Should().Be("127.0.0.1");
+        config.Backend.Port.Should().Be(5437);
     }
 
     [Fact]
@@ -59,5 +59,41 @@ public class ConfigurationTests
 
         // Assert
         config.Mode.Should().Be(PoolingMode.Transaction);
+    }
+
+    [Fact]
+    public void UsePipelinesArchitecture_ShouldDefaultToFalse()
+    {
+        // Arrange & Act
+        var config = new PoolConfig();
+
+        // Assert
+        config.UsePipelinesArchitecture.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UsePipelinesArchitecture_ShouldBeConfigurable()
+    {
+        // Arrange
+        var config = new PoolConfig();
+
+        // Act
+        config.UsePipelinesArchitecture = true;
+
+        // Assert
+        config.UsePipelinesArchitecture.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FullConfig_ShouldSupportPipelinesToggle()
+    {
+        // Arrange & Act
+        var config = new PgBouncerConfig
+        {
+            Pool = { UsePipelinesArchitecture = true }
+        };
+
+        // Assert
+        config.Pool.UsePipelinesArchitecture.Should().BeTrue();
     }
 }
