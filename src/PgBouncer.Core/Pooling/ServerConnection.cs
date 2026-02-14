@@ -12,6 +12,7 @@ public class ServerConnection : IServerConnection
     private readonly NetworkStream _stream;
     private DateTime _lastActivity;
     private volatile bool _isDirty;
+    private int _generation;
 
     public ServerConnection(Socket socket, string database, string username)
     {
@@ -63,6 +64,7 @@ public class ServerConnection : IServerConnection
     }
 
     public DateTime LastActivity => _lastActivity;
+    public int Generation { get => _generation; set => _generation = value; }
 
     public bool IsIdle(int idleTimeoutSeconds) =>
         (DateTime.UtcNow - _lastActivity).TotalSeconds > idleTimeoutSeconds;

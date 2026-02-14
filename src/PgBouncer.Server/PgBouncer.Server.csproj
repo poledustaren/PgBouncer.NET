@@ -81,14 +81,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="bin2\Debug\net8.0\" />
-    <Folder Include="bin3\Debug\net8.0\bin2\Debug\net8.0\" />
-    <Folder Include="bin6\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\" />
-    <Folder Include="bin6\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\" />
-    <Folder Include="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="bin6\Debug\net8.0\PgBouncer.Server.pdb" />
     <None Remove="bin6\Debug\net8.0\PgBouncer.Server.exe" />
     <None Remove="bin6\Debug\net8.0\PgBouncer.Server.dll" />

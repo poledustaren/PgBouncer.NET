@@ -95,6 +95,10 @@ public class DynamicStressTest
             {
                 var result = await ExecuteConnectionAsync(i, cancellationToken);
                 results.Add(result);
+                if (!result.Success)
+                {
+                    Console.WriteLine($"   [Error #{i}] {result.ErrorType}: {result.ErrorMessage}");
+                }
             }
             finally
             {

@@ -8,6 +8,7 @@ public interface IServerConnection : IAsyncDisposable
     Stream Stream { get; }
     bool IsHealthy { get; }
     DateTime LastActivity { get; }
+    int Generation { get; set; }
 
     void UpdateActivity();
     void MarkDirty();
