@@ -88,18 +88,38 @@ Connect to port **6432** instead of the default **5432**.
     "Mode": "Transaction",
     "IdleTimeout": 300,
     "ConnectionTimeout": 60,
-    "ServerResetQuery": "DISCARD ALL"
+    "ServerResetQuery": "DISCARD ALL",
+    "UsePipelinesArchitecture": false
   }
 }
 ```
 
-| Parameter               | Description                      | Default     |
-| ----------------------- | -------------------------------- | ----------- |
-| `ListenPort`            | Port for clients                 | 6432        |
-| `DashboardPort`         | Web dashboard port               | 5081        |
-| `Pool.MaxSize`          | Max connections to PostgreSQL    | 200         |
-| `Pool.ConnectionTimeout`| Slot wait timeout (sec)          | 60          |
-| `Pool.ServerResetQuery` | Query to reset backend session   | DISCARD ALL |
+| Parameter                    | Description                                           | Default     |
+| ---------------------------- | ----------------------------------------------------- | ----------- |
+| `ListenPort`                 | Port for clients                                      | 6432        |
+| `DashboardPort`              | Web dashboard port                                    | 5081        |
+| `Pool.MaxSize`               | Max connections to PostgreSQL                         | 200         |
+| `Pool.ConnectionTimeout`     | Slot wait timeout (sec)                               | 60          |
+| `Pool.ServerResetQuery`      | Query to reset backend session                        | DISCARD ALL |
+| `Pool.UsePipelinesArchitecture` | Enable zero-allocation I/O with System.IO.Pipelines | false       |
+
+### Pipelines Architecture
+
+PgBouncer.NET supports two I/O architectures:
+
+**Stream (Legacy):** Traditional Stream-based I/O with buffered reads/writes. Stable and well-tested.
+
+**Pipelines:** Zero-allocation I/O using `System.IO.Pipelines` for reduced memory pressure and improved throughput under high load.
+
+```json
+{
+  "Pool": {
+    "UsePipelinesArchitecture": true
+  }
+}
+```
+
+See [PIPELINES_ARCHITECTURE.md](docs/PIPELINES_ARCHITECTURE.md) for detailed performance characteristics and implementation details.
 
 ## Dashboard
 
@@ -119,15 +139,18 @@ pgbouncer.net/
 │   │   ├── Pooling/           # ConnectionPool, PoolManager
 │   │   └── Protocol/          # PostgreSQL protocol
 │   └── PgBouncer.Server/      # Server and Dashboard
-│       ├── ClientSession.cs   # Client handling
+│       ├── ClientSession.cs   # Legacy Stream-based client handling
+│       ├── PipelinesClientSession.cs # Pipelines-based client handling
 │       ├── ProxyServer.cs     # TCP server
 │       └── wwwroot/           # Web interface
 ├── tests/
 │   ├── PgBouncer.Tests/       # Unit tests
+│   ├── PgBouncer.Benchmarks/  # Performance benchmarks
 │   ├── PgBouncer.BattleTest/  # Production readiness tests
 │   ├── PgBouncer.LoadTester/  # Load testing
 │   └── PgBouncer.StressTester/# Stress testing
 ├── docs/
+│   ├── PIPELINES_ARCHITECTURE.md  # System.IO.Pipelines documentation
 │   ├── OPTIMIZATION_ROADMAP.md
 │   └── archive/               # Historical reports
 └── pgbouncer-bin/             # Original pgbouncer for benchmarking
@@ -154,10 +177,18 @@ dotnet run --project tests/PgBouncer.LoadTester -- \
 
 **Current:** Alpha - Under active development
 
+**Architecture:**
+- Stream-based I/O (default, stable)
+- System.IO.Pipelines I/O (experimental, opt-in via `UsePipelinesArchitecture=true`)
+  - Zero-allocation message parsing
+  - Reduced GC pressure under high load
+  - See [PIPELINES_ARCHITECTURE.md](docs/PIPELINES_ARCHITECTURE.md) for details
+
 **Known Issues:**
 - Extended Query Protocol (prepared statements) support is basic
 - COPY protocol not supported
 - Some edge cases in transaction handling
+- Pipelines architecture needs production validation
 
 ## Roadmap
 
