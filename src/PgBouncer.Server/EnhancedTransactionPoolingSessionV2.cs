@@ -535,11 +535,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
             var backend = await _pool.AcquireAsync(cts.Token);
             
-            // Clear any stale messages from previous backend usage
-            while (_backendToClientChannel.Reader.TryRead(out _))
-            {
-                _logger.LogTrace("[Session {Id}] Cleared stale message from backend channel", _sessionInfo.Id);
-            }
+            // Fix #3: Remove channel clearing - generation-based filtering handles stale messages
             
             lock (_backendLock)
             {
@@ -575,15 +571,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             _backendGeneration++;
         }
 
-        while (_backendToClientChannel.Reader.TryRead(out var staleMsg))
-        {
-            _logger.LogTrace("[Session {Id}] Cleared stale message from backend channel during release", _sessionInfo.Id);
-        }
-        
-        while (_readyForQueryChannel.Reader.TryRead(out _))
-        {
-            _logger.LogTrace("[Session {Id}] Cleared stale ReadyForQuery from channel during release", _sessionInfo.Id);
-        }
+        // Fix #3: Remove channel clearing - generation-based filtering handles stale messages
 
         if (backend != null)
         {
