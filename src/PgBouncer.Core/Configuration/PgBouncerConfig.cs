@@ -104,6 +104,14 @@ public class PoolConfig
     /// Set to empty string to disable.
     /// </summary>
     public string ServerResetQuery { get; set; } = "DISCARD ALL";
+
+    /// <summary>
+    /// Use System.IO.Pipelines architecture for client sessions.
+    /// When true, uses PipelinesClientSession (zero-allocation I/O).
+    /// When false, uses legacy ClientSession (Stream-based I/O).
+    /// Default: false (legacy Stream-based).
+    /// </summary>
+    public bool UsePipelinesArchitecture { get; set; } = false;
 }
 
 /// <summary>
