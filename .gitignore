@@ -1,6 +1,24 @@
 bin/
 obj/
 logs/
+*.log
+*.pid
+*.7z
+*.zip
 *.user
 *.suo
+.idea/
+.vscode/
 .vs/
+nul
+
+# Test outputs
+test_output*.log
+stress-test-results*.txt
+
+# Build artifacts
+*.dll
+*.pdb
+*.exe
+*.deps.json
+*.runtimeconfig.json

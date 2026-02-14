@@ -37,6 +37,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     private readonly object _backendLock = new();
     private volatile bool _backendAcquired;
     private volatile bool _pendingBackendRelease;
+    private int _backendGeneration;
     
     private readonly Channel<byte[]> _clientToBackendChannel;
     private readonly Channel<byte[]> _backendToClientChannel;
@@ -224,9 +225,11 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             while (!cancellationToken.IsCancellationRequested)
             {
                 IServerConnection? backend;
+                int readGeneration;
                 lock (_backendLock)
                 {
                     backend = _backend;
+                    readGeneration = _backendGeneration;
                 }
 
                 if (backend == null)
@@ -244,17 +247,14 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
                     continue;
                 }
 
-                // Check if backend changed while we were reading
-                IServerConnection? currentBackend;
                 lock (_backendLock)
                 {
-                    currentBackend = _backend;
-                }
-                
-                if (currentBackend != backend)
-                {
-                    _logger.LogDebug("[Session {Id}] Backend changed during read, discarding message from old backend", _sessionInfo.Id);
-                    continue;
+                    if (_backendGeneration != readGeneration || _backend != backend)
+                    {
+                        _logger.LogDebug("[Session {Id}] Backend changed (gen {Old}->{New}), discarding message",
+                            _sessionInfo.Id, readGeneration, _backendGeneration);
+                        continue;
+                    }
                 }
 
                 var msgType = (char)message[0];
@@ -281,7 +281,6 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         finally
         {
             ArrayPool<byte>.Shared.Return(buffer);
-            _backendToClientChannel.Writer.TryComplete();
         }
     }
 
@@ -480,18 +479,35 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
         await _readyForQueryChannel.Writer.WriteAsync(true, cancellationToken);
 
-        // Keep backend for the entire session (session-like pooling)
-        // This prevents race conditions with messages mixing between clients
-        // TODO: Implement proper transaction pooling with backend reset
-        // if (status == 'I')
-        // {
-        //     _pendingBackendRelease = true;
-        // }
+        if (status == 'I')
+        {
+            _logger.LogDebug("[Session {Id}] Transaction idle - scheduling backend release", _sessionInfo.Id);
+            _pendingBackendRelease = true;
+        }
+        else if (status == 'T')
+        {
+            _logger.LogDebug("[Session {Id}] In transaction block - keeping backend", _sessionInfo.Id);
+        }
+        else if (status == 'E')
+        {
+            _logger.LogDebug("[Session {Id}] Failed transaction - keeping backend for rollback", _sessionInfo.Id);
+        }
     }
 
     private async Task EnsureBackendAsync(CancellationToken cancellationToken)
     {
-        if (_backendAcquired) return;
+        if (_backendAcquired)
+        {
+            if (_pendingBackendRelease)
+            {
+                _logger.LogDebug("[Session {Id}] Releasing backend before acquiring new one", _sessionInfo.Id);
+                await ReleaseBackendAsync();
+            }
+            else
+            {
+                return;
+            }
+        }
 
         var sw = Stopwatch.StartNew();
         
@@ -543,6 +559,17 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             _backend = null;
             _backendAcquired = false;
             _pendingBackendRelease = false;
+            _backendGeneration++;
+        }
+
+        while (_backendToClientChannel.Reader.TryRead(out var staleMsg))
+        {
+            _logger.LogTrace("[Session {Id}] Cleared stale message from backend channel during release", _sessionInfo.Id);
+        }
+        
+        while (_readyForQueryChannel.Reader.TryRead(out _))
+        {
+            _logger.LogTrace("[Session {Id}] Cleared stale ReadyForQuery from channel during release", _sessionInfo.Id);
         }
 
         if (backend != null)
@@ -553,7 +580,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
                     backend,
                     _config.Pool.ServerResetQuery,
                     _logger,
-                    _sessionCts.Token);
+                    default);
             }
             catch (Exception ex)
             {
@@ -562,7 +589,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             
             _pool.Release(backend);
             _onBackendReleased();
-            _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", _sessionInfo.Id, backend.Id);
+            _logger.LogDebug("[Session {Id}] Backend released: {BackendId} (gen {Gen})", _sessionInfo.Id, backend.Id, _backendGeneration);
         }
     }
 

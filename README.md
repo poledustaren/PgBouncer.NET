@@ -1,78 +1,79 @@
-# 🐘 PgBouncer.NET
+# PgBouncer.NET
 
-**Connection pooler для PostgreSQL на .NET** — легковесный прокси-сервер для управления соединениями к PostgreSQL.
+**Connection pooler for PostgreSQL on .NET** — lightweight proxy server for managing PostgreSQL connections.
 
 [![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13+-336791?logo=postgresql)](https://postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## 🎯 Проблема, которую решает
+## Problem Solved
 
-Типичная ситуация:
-- **10 микросервисов** × **200 соединений** = **2000 соединений к PostgreSQL**
-- PostgreSQL держит только **100-500 соединений**
-- Результат: `FATAL: too many connections`
+Typical scenario:
+- **10 microservices** × **200 connections** = **2000 connections to PostgreSQL**
+- PostgreSQL supports only **100-500 connections**
+- Result: `FATAL: too many connections`
 
-**PgBouncer.NET** принимает все 2000 клиентов, но к базе идёт максимум 100 соединений.
+**PgBouncer.NET** accepts all 2000 clients but maintains max 100 connections to the database.
 
-## ⚙️ Как работает
+## How It Works
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌────────────┐
-│  Клиент 1   │────▶│                  │     │            │
+│  Client 1   │────▶│                  │     │            │
 ├─────────────┤     │                  │     │            │
-│  Клиент 2   │────▶│  PgBouncer.NET   │────▶│ PostgreSQL │
-├─────────────┤     │   (до 2000)      │     │  (до 100)  │
+│  Client 2   │────▶│  PgBouncer.NET   │────▶│ PostgreSQL │
+├─────────────┤     │   (up to 2000)   │     │  (to 100)  │
 │  ...        │────▶│                  │     │            │
 ├─────────────┤     │                  │     │            │
-│  Клиент N   │────▶│                  │     │            │
+│  Client N   │────▶│                  │     │            │
 └─────────────┘     └──────────────────┘     └────────────┘
 ```
 
-### Режим работы: Session Pooling с лимитом
+### Pooling Mode: Transaction Pooling
 
-- **Тип очереди:** FIFO (First In, First Out)
-- **Алгоритм:** Семафор ограничивает backend-соединения
-- **При превышении лимита:** Клиенты ждут в очереди (таймаут 30 сек)
+- **Queue Type:** FIFO (First In, First Out)
+- **Algorithm:** Semaphore limits backend connections
+- **On Limit Exceeded:** Clients wait in queue (timeout 30-60 sec)
+- **Backend Reset:** `DISCARD ALL` clears session state between clients
 
-## 🚀 Быстрый старт
+## Quick Start
 
-### Требования
+### Requirements
 
 - [.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
 - PostgreSQL 13+
 
-### Установка и запуск
+### Installation and Running
 
 ```bash
-# 1. Клонируем репозиторий
+# 1. Clone repository
 git clone https://github.com/your-username/pgbouncer.net.git
 cd pgbouncer.net
 
-# 2. Настраиваем конфигурацию
-# Редактируем src/PgBouncer.Server/appsettings.json
+# 2. Configure
+# Edit src/PgBouncer.Server/appsettings.json
 
-# 3. Собираем и запускаем
+# 3. Build and run
 dotnet run --project src/PgBouncer.Server
 ```
 
-### Подключение
+### Connection
 
 ```
-Прокси:     localhost:6432
-Dashboard:  http://localhost:5080
+Proxy:     localhost:6432
+Dashboard: http://localhost:5081
 ```
 
-Подключайтесь к порту **6432** вместо стандартного **5432**.
+Connect to port **6432** instead of the default **5432**.
 
-## 📝 Конфигурация
+## Configuration
 
 `src/PgBouncer.Server/appsettings.json`:
 
 ```json
 {
   "ListenPort": 6432,
-  "DashboardPort": 5080,
+  "DashboardPort": 5081,
   "Backend": {
     "Host": "127.0.0.1",
     "Port": 5432,
@@ -80,53 +81,92 @@ Dashboard:  http://localhost:5080
     "AdminPassword": "your_password"
   },
   "Pool": {
-    "MaxSize": 100,
-    "ConnectionTimeout": 30
+    "DefaultSize": 100,
+    "MinSize": 50,
+    "MaxSize": 200,
+    "MaxTotalConnections": 2000,
+    "Mode": "Transaction",
+    "IdleTimeout": 300,
+    "ConnectionTimeout": 60,
+    "ServerResetQuery": "DISCARD ALL"
   }
 }
 ```
 
-| Параметр                 | Описание                      | По умолчанию |
-| ------------------------ | ----------------------------- | ------------ |
-| `ListenPort`             | Порт для клиентов             | 6432         |
-| `DashboardPort`          | Порт веб-дашборда             | 5080         |
-| `Pool.MaxSize`           | Макс. соединений к PostgreSQL | 100          |
-| `Pool.ConnectionTimeout` | Таймаут ожидания слота (сек)  | 30           |
+| Parameter               | Description                      | Default     |
+| ----------------------- | -------------------------------- | ----------- |
+| `ListenPort`            | Port for clients                 | 6432        |
+| `DashboardPort`         | Web dashboard port               | 5081        |
+| `Pool.MaxSize`          | Max connections to PostgreSQL    | 200         |
+| `Pool.ConnectionTimeout`| Slot wait timeout (sec)          | 60          |
+| `Pool.ServerResetQuery` | Query to reset backend session   | DISCARD ALL |
 
-## 📊 Dashboard
+## Dashboard
 
-Веб-интерфейс для мониторинга на `http://localhost:5080`:
+Web interface for monitoring at `http://localhost:5081`:
 
-- **Активные backend-соединения** — нагрузка на PostgreSQL
-- **Клиенты в очереди** — ожидающие слота
-- **Время ожидания** — среднее и максимальное
-- **Таймауты** — клиенты, не дождавшиеся слота
+- **Active backend connections** — PostgreSQL load
+- **Clients in queue** — waiting for slot
+- **Wait time** — average and maximum
+- **Timeouts** — clients that didn't get a slot
 
-## 🧪 Стресс-тестирование
-
-```bash
-# Запуск стресс-тестера (10 виртуальных проектов)
-dotnet run --project tests/PgBouncer.StressTester
-```
-
-Симулирует 10 проектов с разной нагрузкой (от 10 до 200 соединений каждый).
-
-## 🏗️ Структура проекта
+## Project Structure
 
 ```
 pgbouncer.net/
 ├── src/
-│   ├── PgBouncer.Core/        # Ядро: пулинг, протокол
+│   ├── PgBouncer.Core/        # Core: pooling, protocol
 │   │   ├── Pooling/           # ConnectionPool, PoolManager
-│   │   └── Protocol/          # PostgreSQL протокол
-│   └── PgBouncer.Server/      # Сервер и Dashboard
-│       ├── ClientSession.cs   # Обработка клиентов
-│       ├── ProxyServer.cs     # TCP-сервер
-│       └── wwwroot/           # Веб-интерфейс
-└── tests/
-    └── PgBouncer.StressTester/ # Нагрузочное тестирование
+│   │   └── Protocol/          # PostgreSQL protocol
+│   └── PgBouncer.Server/      # Server and Dashboard
+│       ├── ClientSession.cs   # Client handling
+│       ├── ProxyServer.cs     # TCP server
+│       └── wwwroot/           # Web interface
+├── tests/
+│   ├── PgBouncer.Tests/       # Unit tests
+│   ├── PgBouncer.BattleTest/  # Production readiness tests
+│   ├── PgBouncer.LoadTester/  # Load testing
+│   └── PgBouncer.StressTester/# Stress testing
+├── docs/
+│   ├── OPTIMIZATION_ROADMAP.md
+│   └── archive/               # Historical reports
+└── pgbouncer-bin/             # Original pgbouncer for benchmarking
 ```
 
-## 📄 Лицензия
+## Benchmarking Against Original PgBouncer
 
-MIT License
+To compare performance with the original C pgbouncer:
+
+```bash
+# 1. Start original pgbouncer (port 6433)
+cd pgbouncer-bin/pgbouncer && ./pgbouncer.exe pgbouncer.ini
+
+# 2. Start PgBouncer.NET (port 6432)
+dotnet run --project src/PgBouncer.Server
+
+# 3. Run load test
+dotnet run --project tests/PgBouncer.LoadTester -- \
+  --host localhost --port 6432 \
+  --dynamic-stress --duration 60
+```
+
+## Status
+
+**Current:** Alpha - Under active development
+
+**Known Issues:**
+- Extended Query Protocol (prepared statements) support is basic
+- COPY protocol not supported
+- Some edge cases in transaction handling
+
+## Roadmap
+
+1. Full Extended Query Protocol support
+2. COPY protocol support
+3. Performance optimization
+4. Docker image
+5. Kubernetes Helm chart
+
+## License
+
+[MIT License](LICENSE)

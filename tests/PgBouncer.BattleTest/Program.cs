@@ -19,12 +19,12 @@ class Program
         var durationOption = new Option<int>(
             aliases: new[] { "--duration", "-d" },
             description: "Maximum test duration in minutes",
-            getDefaultValue: () => 10);
+            getDefaultValue: () => 3);
 
         var maxClientsOption = new Option<int>(
             aliases: new[] { "--max-clients", "-c" },
             description: "Maximum number of concurrent clients",
-            getDefaultValue: () => 20);
+            getDefaultValue: () => 100);
 
         var hostOption = new Option<string>(
             aliases: new[] { "--host", "-h" },
@@ -54,12 +54,12 @@ class Program
         var opsPerSecOption = new Option<int>(
             aliases: new[] { "--ops-per-sec", "-r" },
             description: "Target operations per second per client",
-            getDefaultValue: () => 10);
+            getDefaultValue: () => 100);
 
         var waveDurationOption = new Option<int>(
             aliases: new[] { "--wave-duration", "-w" },
             description: "Wave duration in seconds",
-            getDefaultValue: () => 30);
+            getDefaultValue: () => 10);
 
         // Add options to command
         rootCommand.AddOption(durationOption);
