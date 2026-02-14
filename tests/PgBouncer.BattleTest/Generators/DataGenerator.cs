@@ -17,7 +17,7 @@ public class DataGenerator
         _random = new Random();
     }
 
-    public TestRecord GenerateRecord(string sessionId, int waveNumber, int clientId)
+    public TestRecord GenerateRecord(Guid sessionId, int waveNumber, int clientId, int databaseId, int operationNumber, string operationType)
     {
         var id = Guid.NewGuid();
         var payload = GeneratePayload();
@@ -28,9 +28,12 @@ public class DataGenerator
             Id = id,
             SessionId = sessionId,
             WaveNumber = waveNumber,
+            OperationNumber = operationNumber,
             ClientId = clientId,
+            DatabaseId = databaseId,
             Payload = payload,
-            Checksum = checksum
+            Checksum = checksum,
+            OperationType = operationType
         };
     }
 

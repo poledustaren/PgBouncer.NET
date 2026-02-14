@@ -315,6 +315,19 @@ public sealed class TransactionPoolingSession : IDisposable
                             {
                                 _logger.LogDebug("[Session {Id}] RFQ(Idle). Backend {BackendId} свободен! Возвращаем в стойло.", _sessionInfo.Id, connection.Id);
 
+                                try
+                                {
+                                    await BackendResetHelper.SendResetQueryAsync(
+                                        connection,
+                                        _config.Pool.ServerResetQuery,
+                                        _logger,
+                                        token);
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "[Session {Id}] Failed to reset backend {BackendId}, releasing anyway", _sessionInfo.Id, connection.Id);
+                                }
+
                                 _pool.Release(connection);
                                 released = true;
                                 _onBackendReleased();

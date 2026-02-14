@@ -26,7 +26,7 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Find free port for PgBouncer
-        _pgbouncerPort = 6434; // Use the manually started server
+        _pgbouncerPort = 6432; // Use the manually started server
         
         // Parse PostgreSQL container port from connection string
         var postgresPort = ParsePortFromConnectionString(_postgres.ConnectionString);

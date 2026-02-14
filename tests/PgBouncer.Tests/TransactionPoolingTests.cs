@@ -46,6 +46,9 @@ public class TransactionPoolingTests
         // Arrange
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
+        // Disable ServerResetQuery for this test (we test the reset separately)
+        _config.Pool.ServerResetQuery = "";
+
         // 1. Prepare Client Query: 'Q' "SELECT 1"
         var queryMsg = CreateQueryMessage("SELECT 1");
         _clientStream.WriteToInput(queryMsg);
@@ -139,6 +142,57 @@ public class TransactionPoolingTests
 
         // 4. Verify AcquireAsync was called
         _poolMock.Verify(x => x.AcquireAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldSendResetQueryBeforeRelease()
+    {
+        // Arrange
+        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        _config.Pool.ServerResetQuery = "DISCARD ALL";
+
+        var queryMsg = CreateQueryMessage("SELECT 1");
+        _clientStream.WriteToInput(queryMsg);
+
+        // First ReadyForQuery for the query
+        var backendResponse = CreateReadyForQueryMessage(true);
+        _backendStream.WriteToInput(backendResponse);
+        // Second ReadyForQuery for the DISCARD ALL
+        _backendStream.WriteToInput(backendResponse);
+
+        IServerConnection? releasedConnection = null;
+        _poolMock.Setup(x => x.Release(It.IsAny<IServerConnection>()))
+            .Callback<IServerConnection>(c => releasedConnection = c);
+
+        var session = new TransactionPoolingSession(
+            _clientStream,
+            _poolMock.Object,
+            _config,
+            NullLogger.Instance,
+            _sessionInfo,
+            _ => { },
+            () => { },
+            () => { },
+            () => { }
+        );
+
+        var runTask = session.RunAsync(cts.Token);
+        await Task.Delay(500);
+        cts.Cancel();
+
+        // Assert
+        var backendReceived = _backendStream.OutputBuffer.ToArray();
+        
+        // Should contain: Query + DISCARD ALL
+        backendReceived.Length.Should().BeGreaterThan(queryMsg.Length, "should contain query + reset query");
+        
+        // Check that DISCARD ALL was sent (starts after first query)
+        var resetQueryStart = queryMsg.Length;
+        var resetQueryType = (char)backendReceived[resetQueryStart];
+        resetQueryType.Should().Be('Q', "reset query should be a Query message");
+        
+        // Verify backend was released
+        _poolMock.Verify(x => x.Release(It.IsAny<IServerConnection>()), Times.Once);
     }
 
     private byte[] CreateQueryMessage(string query)

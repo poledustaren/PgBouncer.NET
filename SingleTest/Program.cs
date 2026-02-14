@@ -1,35 +1,61 @@
 using Npgsql;
 using System.Diagnostics;
 
-Console.WriteLine("=== Single Connection Test to PgBouncer V2 ===");
+Console.WriteLine("=== Npgsql Test via PgBouncer.NET ===");
+Console.WriteLine();
 
-var connString = "Host=127.0.0.1;Port=6434;Database=postgres;Username=postgres;Password=123;Pooling=false;Timeout=30";
+var connectionString = "Host=127.0.0.1;Port=6432;Database=postgres;Username=postgres;Password=123;";
 
-var sw = Stopwatch.StartNew();
-try
+var successCount = 0;
+var errorCount = 0;
+var errors = new List<string>();
+
+for (int i = 0; i < 10; i++)
 {
-    Console.WriteLine("Creating connection...");
-    await using var conn = new NpgsqlConnection(connString);
-    
-    Console.WriteLine("Opening connection...");
-    await conn.OpenAsync();
-    Console.WriteLine($"✓ Connected in {sw.ElapsedMilliseconds}ms");
-    
-    Console.WriteLine("Executing query...");
-    await using var cmd = new NpgsqlCommand("SELECT 42 as answer", conn);
-    var result = await cmd.ExecuteScalarAsync();
-    Console.WriteLine($"✓ Result: {result}");
-    
-    Console.WriteLine("Closing connection...");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"✗ Error after {sw.ElapsedMilliseconds}ms:");
-    Console.WriteLine($"  Type: {ex.GetType().Name}");
-    Console.WriteLine($"  Message: {ex.Message}");
-    if (ex.InnerException != null)
+    try
     {
-        Console.WriteLine($"  Inner: {ex.InnerException.Message}");
+        await using var conn = new NpgsqlConnection(connectionString);
+        await conn.OpenAsync();
+        Console.WriteLine($"[{i}] Connected!");
+
+        // Simple query
+        await using (var cmd = new NpgsqlCommand("SELECT @val", conn))
+        {
+            cmd.Parameters.AddWithValue("val", i);
+            var result = await cmd.ExecuteScalarAsync();
+            Console.WriteLine($"[{i}] Simple query result: {result}");
+        }
+
+        // Prepared statement (this was causing the portal error)
+        await using (var cmd = new NpgsqlCommand("SELECT @val * 2", conn))
+        {
+            cmd.Parameters.AddWithValue("val", i);
+            await cmd.PrepareAsync(); // This creates a named statement/portal
+            var result = await cmd.ExecuteScalarAsync();
+            Console.WriteLine($"[{i}] Prepared statement result: {result}");
+        }
+
+        successCount++;
     }
-    Console.WriteLine($"  Stack: {ex.StackTrace?.Split('\n').FirstOrDefault()}");
+    catch (Exception ex)
+    {
+        errorCount++;
+        errors.Add($"[{i}] ERROR: {ex.Message}");
+        Console.WriteLine($"[{i}] ERROR: {ex.Message}");
+    }
+}
+
+Console.WriteLine();
+Console.WriteLine($"=== Results ===");
+Console.WriteLine($"Success: {successCount}/10");
+Console.WriteLine($"Errors: {errorCount}/10");
+
+if (errors.Count > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine("Sample errors:");
+    foreach (var e in errors.Take(3))
+    {
+        Console.WriteLine(e);
+    }
 }

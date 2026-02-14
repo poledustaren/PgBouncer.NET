@@ -244,6 +244,19 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
                     continue;
                 }
 
+                // Check if backend changed while we were reading
+                IServerConnection? currentBackend;
+                lock (_backendLock)
+                {
+                    currentBackend = _backend;
+                }
+                
+                if (currentBackend != backend)
+                {
+                    _logger.LogDebug("[Session {Id}] Backend changed during read, discarding message from old backend", _sessionInfo.Id);
+                    continue;
+                }
+
                 var msgType = (char)message[0];
                 _logger.LogDebug("[Session {Id}] Backend->: Type='{Type}'",
                     _sessionInfo.Id, msgType);
@@ -467,10 +480,13 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
         await _readyForQueryChannel.Writer.WriteAsync(true, cancellationToken);
 
-        if (status == 'I')
-        {
-            _pendingBackendRelease = true;
-        }
+        // Keep backend for the entire session (session-like pooling)
+        // This prevents race conditions with messages mixing between clients
+        // TODO: Implement proper transaction pooling with backend reset
+        // if (status == 'I')
+        // {
+        //     _pendingBackendRelease = true;
+        // }
     }
 
     private async Task EnsureBackendAsync(CancellationToken cancellationToken)
@@ -489,6 +505,12 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
             cts.CancelAfter(timeout);
 
             var backend = await _pool.AcquireAsync(cts.Token);
+            
+            // Clear any stale messages from previous backend usage
+            while (_backendToClientChannel.Reader.TryRead(out _))
+            {
+                _logger.LogTrace("[Session {Id}] Cleared stale message from backend channel", _sessionInfo.Id);
+            }
             
             lock (_backendLock)
             {
@@ -525,6 +547,19 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
         if (backend != null)
         {
+            try
+            {
+                await BackendResetHelper.SendResetQueryAsync(
+                    backend,
+                    _config.Pool.ServerResetQuery,
+                    _logger,
+                    _sessionCts.Token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[Session {Id}] Failed to reset backend {BackendId}, releasing anyway", _sessionInfo.Id, backend.Id);
+            }
+            
             _pool.Release(backend);
             _onBackendReleased();
             _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", _sessionInfo.Id, backend.Id);

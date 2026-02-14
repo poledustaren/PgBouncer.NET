@@ -8,12 +8,12 @@ public class PgBouncerConfig
     /// <summary>
     /// Порт для прослушивания клиентских соединений
     /// </summary>
-    public int ListenPort { get; set; } = 6432;
+    public int ListenPort { get; set; } = 6442;
 
     /// <summary>
     /// Порт для Dashboard API
     /// </summary>
-    public int DashboardPort { get; set; } = 5080;
+    public int DashboardPort { get; set; } = 5083;
 
     /// <summary>
     /// Настройки бэкенда PostgreSQL
@@ -39,12 +39,12 @@ public class BackendConfig
     /// <summary>
     /// Хост PostgreSQL сервера
     /// </summary>
-    public string Host { get; set; } = "localhost";
+    public string Host { get; set; } = "127.0.0.1";
 
     /// <summary>
     /// Порт PostgreSQL сервера
     /// </summary>
-    public int Port { get; set; } = 5432;
+    public int Port { get; set; } = 5437;
 
     /// <summary>
     /// Админский пользователь для служебных операций
@@ -96,6 +96,14 @@ public class PoolConfig
     /// Таймаут подключения к бэкенду (секунды)
     /// </summary>
     public int ConnectionTimeout { get; set; } = 60;
+
+    /// <summary>
+    /// Query to execute on backend before returning it to pool.
+    /// Used to clean up server-side state (prepared statements, portals, temp tables).
+    /// Default: "DISCARD ALL" which resets session state.
+    /// Set to empty string to disable.
+    /// </summary>
+    public string ServerResetQuery { get; set; } = "DISCARD ALL";
 }
 
 /// <summary>

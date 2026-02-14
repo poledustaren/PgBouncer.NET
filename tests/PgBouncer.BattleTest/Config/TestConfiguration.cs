@@ -5,7 +5,7 @@ namespace PgBouncer.BattleTest.Config;
 public class TestConfiguration
 {
     // Test identification
-    public string SessionId { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public Guid SessionId { get; set; } = Guid.NewGuid();
     
     // Database configuration
     public string Host { get; set; } = "localhost";

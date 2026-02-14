@@ -52,7 +52,7 @@ public record ConsistencyViolation
 
 public record BattleTestReport
 {
-    public string SessionId { get; init; } = Guid.NewGuid().ToString("N")[..8];
+    public Guid SessionId { get; init; } = Guid.NewGuid();
     public DateTime StartedAt { get; init; }
     public DateTime? EndedAt { get; init; }
     public TimeSpan Duration => EndedAt.HasValue ? EndedAt.Value - StartedAt : TimeSpan.Zero;

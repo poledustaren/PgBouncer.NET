@@ -3,7 +3,7 @@
 
 -- Таблица для тестовых записей
 CREATE TABLE IF NOT EXISTS battle_records (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY,
     session_id UUID NOT NULL,
     wave_number INT NOT NULL,
     operation_number INT NOT NULL,

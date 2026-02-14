@@ -7,7 +7,7 @@ namespace PgBouncer.Tests;
 public class SimpleConnectionTests
 {
     private readonly ITestOutputHelper _output;
-    private const int PgBouncerPort = 6434;
+    private const int PgBouncerPort = 6432;
     
     public SimpleConnectionTests(ITestOutputHelper output)
     {
