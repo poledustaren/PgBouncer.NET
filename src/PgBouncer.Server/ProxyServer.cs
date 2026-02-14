@@ -12,9 +12,6 @@ namespace PgBouncer.Server;
 /// </summary>
 public class ProxyServer : IDisposable
 {
-    /// <summary>Уникальный GUID инстанса сервера (генерируется при каждом запуске)</summary>
-    public static Guid InstanceGuid { get; } = Guid.NewGuid();
-    
     private readonly PgBouncerConfig _config;
     private readonly PoolManager _poolManager;
     private readonly ILogger<ProxyServer> _logger;
@@ -109,8 +106,6 @@ public class ProxyServer : IDisposable
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("=== ЗАПУСК PgBouncer.NET. InstanceGUID: {InstanceGuid} ===", InstanceGuid);
-        
         _listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _listenerSocket.Bind(new IPEndPoint(IPAddress.Any, _config.ListenPort));
         _listenerSocket.Listen(500);

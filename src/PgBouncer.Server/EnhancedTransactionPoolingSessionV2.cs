@@ -10,7 +10,7 @@ using PgBouncer.Core.Protocol;
 
 namespace PgBouncer.Server;
 
-public class EnhancedTransactionPoolingSessionV2 : IDisposable
+public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHandler
 {
     private readonly Stream _clientStream;
     private readonly IConnectionPool _pool;
@@ -46,7 +46,6 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     private readonly CancellationTokenSource _sessionCts = new();
     private Task? _clientReaderTask;
     private Task? _clientWriterTask;
-    private Task? _backendReaderTask;
     private Task? _backendWriterTask;
 
     public EnhancedTransactionPoolingSessionV2(
@@ -110,17 +109,15 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
             _clientReaderTask = ClientReaderLoopAsync(effectiveStream, linkedToken);
             _clientWriterTask = ClientWriterLoopAsync(linkedToken);
-            _backendReaderTask = BackendReaderLoopAsync(linkedToken);
             _backendWriterTask = BackendWriterLoopAsync(linkedToken);
 
-            var completedTask = await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendReaderTask, _backendWriterTask);
+            var completedTask = await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendWriterTask);
             
             try { await completedTask; } catch { }
             
             await Task.WhenAll(
                 AwaitWithTimeout(_clientReaderTask, TimeSpan.FromSeconds(3)),
                 AwaitWithTimeout(_clientWriterTask, TimeSpan.FromSeconds(3)),
-                AwaitWithTimeout(_backendReaderTask, TimeSpan.FromSeconds(3)),
                 AwaitWithTimeout(_backendWriterTask, TimeSpan.FromSeconds(3))
             );
         }
@@ -136,6 +133,48 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         {
             await CleanupAsync();
         }
+    }
+
+    public ValueTask HandlePacketAsync(byte[] packet, int generation)
+    {
+        if (generation != _backendGeneration)
+        {
+            _logger.LogTrace("[Session {Id}] Ignoring packet from old generation {Gen} (current: {Current})",
+                _sessionInfo.Id, generation, _backendGeneration);
+            return ValueTask.CompletedTask;
+        }
+
+        var msgType = (char)packet[0];
+        _logger.LogDebug("[Session {Id}] Backend->: Type='{Type}'", _sessionInfo.Id, msgType);
+
+        if (msgType == PgMessageTypes.ReadyForQuery)
+        {
+            var status = packet.Length > 5 ? packet[5] : (byte)'I';
+            _ = HandleReadyForQueryAsync(status);
+        }
+
+        _backendToClientChannel.Writer.TryWrite((packet, generation));
+        return ValueTask.CompletedTask;
+    }
+
+    public void OnBackendDisconnected()
+    {
+        _logger.LogWarning("[Session {Id}] Backend disconnected", _sessionInfo.Id);
+        
+        lock (_backendLock)
+        {
+            if (_backend != null)
+            {
+                _pool.RecordFailure(_backend.Id);
+                _backend.DetachHandler();
+                _pool.Release(_backend);
+                _backend = null;
+                _backendAcquired = false;
+                _onBackendReleased();
+            }
+        }
+        
+        _backendToClientChannel.Writer.TryComplete();
     }
 
     private async Task ClientReaderLoopAsync(Stream clientStream, CancellationToken cancellationToken)
@@ -216,74 +255,6 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         }
     }
 
-    private async Task BackendReaderLoopAsync(CancellationToken cancellationToken)
-    {
-        var buffer = ArrayPool<byte>.Shared.Rent(65536);
-        
-        try
-        {
-            while (!cancellationToken.IsCancellationRequested)
-            {
-                IServerConnection? backend;
-                int readGeneration;
-                lock (_backendLock)
-                {
-                    backend = _backend;
-                    readGeneration = _backendGeneration;
-                }
-
-                if (backend == null)
-                {
-                    await Task.Delay(5, cancellationToken);
-                    continue;
-                }
-
-                var message = await ReadMessageAsync(backend.Stream, buffer, cancellationToken);
-                if (message == null)
-                {
-                    _logger.LogWarning("[Session {Id}] Backend disconnected", _sessionInfo.Id);
-                    _pool.RecordFailure(backend.Id);
-                    await DestroyBackendAsync();
-                    continue;
-                }
-
-                lock (_backendLock)
-                {
-                    if (_backendGeneration != readGeneration || _backend != backend)
-                    {
-                        _logger.LogDebug("[Session {Id}] Backend changed (gen {Old}->{New}), discarding message",
-                            _sessionInfo.Id, readGeneration, _backendGeneration);
-                        continue;
-                    }
-                }
-
-                var msgType = (char)message[0];
-                _logger.LogDebug("[Session {Id}] Backend->: Type='{Type}'",
-                    _sessionInfo.Id, msgType);
-
-                if (msgType == PgMessageTypes.ReadyForQuery)
-                {
-                    var status = message.Length > 5 ? message[5] : (byte)'I';
-                    await HandleReadyForQueryAsync(status, cancellationToken);
-                }
-
-                await _backendToClientChannel.Writer.WriteAsync((message, readGeneration), cancellationToken);
-            }
-        }
-        catch (ChannelClosedException)
-        {
-            _logger.LogDebug("[Session {Id}] Backend reader channel closed", _sessionInfo.Id);
-        }
-        catch (Exception ex) when (!IsExpectedException(ex))
-        {
-            _logger.LogError(ex, "[Session {Id}] Backend reader error", _sessionInfo.Id);
-        }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(buffer);
-        }
-    }
-
     private async Task BackendWriterLoopAsync(CancellationToken cancellationToken)
     {
         try
@@ -331,16 +302,10 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         {
             await foreach (var (message, gen) in _backendToClientChannel.Reader.ReadAllAsync(cancellationToken))
             {
-                int currentGen;
-                lock (_backendLock)
-                {
-                    currentGen = _backendGeneration;
-                }
-                
-                if (gen != currentGen)
+                if (gen != _backendGeneration)
                 {
                     _logger.LogTrace("[Session {Id}] Discarding stale message from gen {OldGen} (current: {CurGen})", 
-                        _sessionInfo.Id, gen, currentGen);
+                        _sessionInfo.Id, gen, _backendGeneration);
                     continue;
                 }
                 
@@ -486,11 +451,11 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
         await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
     }
 
-    private async Task HandleReadyForQueryAsync(byte status, CancellationToken cancellationToken)
+    private async Task HandleReadyForQueryAsync(byte status)
     {
         _logger.LogTrace("[Session {Id}] ReadyForQuery: Status='{Status}'", _sessionInfo.Id, (char)status);
 
-        await _readyForQueryChannel.Writer.WriteAsync(true, cancellationToken);
+        await _readyForQueryChannel.Writer.WriteAsync(true, default);
 
         if (status == 'I')
         {
@@ -535,21 +500,23 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
 
             var backend = await _pool.AcquireAsync(cts.Token);
             
-            // Fix #3: Remove channel clearing - generation-based filtering handles stale messages
+            backend.StartReaderLoop();
+            backend.AttachHandler(this);
             
             lock (_backendLock)
             {
                 _backend = backend;
                 _backendAcquired = true;
                 _pendingBackendRelease = false;
+                _backendGeneration = backend.Generation;
             }
             
             sw.Stop();
             _recordWaitTime(sw.ElapsedMilliseconds);
             _onBackendAcquired();
             
-            _logger.LogDebug("[Session {Id}] Backend acquired: {BackendId} in {Ms}ms", 
-                _sessionInfo.Id, backend.Id, sw.ElapsedMilliseconds);
+            _logger.LogDebug("[Session {Id}] Backend acquired: {BackendId} in {Ms}ms (gen {Gen})", 
+                _sessionInfo.Id, backend.Id, sw.ElapsedMilliseconds, _backendGeneration);
         }
         catch (OperationCanceledException)
         {
@@ -562,55 +529,27 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable
     private async Task ReleaseBackendAsync()
     {
         IServerConnection? backend;
+        int generation;
+        
         lock (_backendLock)
         {
             backend = _backend;
+            generation = _backendGeneration;
             _backend = null;
             _backendAcquired = false;
             _pendingBackendRelease = false;
             _backendGeneration++;
         }
 
-        // Fix #3: Remove channel clearing - generation-based filtering handles stale messages
-
         if (backend != null)
         {
-            try
-            {
-                await BackendResetHelper.SendResetQueryAsync(
-                    backend,
-                    _config.Pool.ServerResetQuery,
-                    _logger,
-                    default);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[Session {Id}] Failed to reset backend {BackendId}, releasing anyway", _sessionInfo.Id, backend.Id);
-            }
+            backend.DetachHandler();
+            
+            _logger.LogDebug("[Session {Id}] Releasing backend {BackendId} (gen {Gen})",
+                _sessionInfo.Id, backend.Id, generation);
             
             _pool.Release(backend);
             _onBackendReleased();
-            _logger.LogDebug("[Session {Id}] Backend released: {BackendId} (gen {Gen})", _sessionInfo.Id, backend.Id, _backendGeneration);
-        }
-    }
-
-    private async Task DestroyBackendAsync()
-    {
-        IServerConnection? backend;
-        lock (_backendLock)
-        {
-            backend = _backend;
-            _backend = null;
-            _backendAcquired = false;
-            _pendingBackendRelease = false;
-        }
-
-        if (backend != null)
-        {
-            await backend.DisposeAsync();
-            _pool.Release(backend);
-            _onBackendReleased();
-            _logger.LogDebug("[Session {Id}] Backend destroyed: {BackendId}", _sessionInfo.Id, backend.Id);
         }
     }
 

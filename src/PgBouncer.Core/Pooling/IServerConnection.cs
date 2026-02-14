@@ -1,3 +1,5 @@
+using System.Threading.Channels;
+
 namespace PgBouncer.Core.Pooling;
 
 public interface IServerConnection : IAsyncDisposable
@@ -9,7 +11,11 @@ public interface IServerConnection : IAsyncDisposable
     bool IsHealthy { get; }
     DateTime LastActivity { get; }
     int Generation { get; set; }
-
+    
+    void AttachHandler(IBackendPacketHandler handler);
+    void DetachHandler();
+    void StartReaderLoop();
+    
     void UpdateActivity();
     void MarkDirty();
     bool IsIdle(int idleTimeoutSeconds);
