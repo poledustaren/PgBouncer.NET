@@ -219,28 +219,25 @@ public class ConnectionPool : IConnectionPool
 
         if (_activeConnections.TryRemove(connection.Id, out _))
         {
+            if (connection.IsBroken || !connection.IsHealthy || _disposed)
+            {
+                connection.DisposeAsync().AsTask().Wait();
+                Interlocked.Decrement(ref _currentSize);
+                _logger?.LogTrace("Соединение {ConnectionId} закрыто (нездоровое или disposed)", connection.Id);
+                return;
+            }
+            
             connection.UpdateActivity();
 
-            if (connection.IsHealthy && !_disposed)
+            if (_idleChannel.Writer.TryWrite(connection))
             {
-                // TryWrite - zero-alloc, если есть место в канале
-                if (_idleChannel.Writer.TryWrite(connection))
-                {
-                    _logger?.LogTrace("Соединение {ConnectionId} возвращено в пул", connection.Id);
-                }
-                else
-                {
-                    // Канал полон (не должно быть при правильной логике)
-                    connection.DisposeAsync().AsTask().Wait();
-                    Interlocked.Decrement(ref _currentSize);
-                    _logger?.LogWarning("Канал полон, соединение {ConnectionId} закрыто", connection.Id);
-                }
+                _logger?.LogTrace("Соединение {ConnectionId} возвращено в пул", connection.Id);
             }
             else
             {
                 connection.DisposeAsync().AsTask().Wait();
                 Interlocked.Decrement(ref _currentSize);
-                _logger?.LogTrace("Соединение {ConnectionId} закрыто (нездоровое или disposed)", connection.Id);
+                _logger?.LogWarning("Канал полон, соединение {ConnectionId} закрыто", connection.Id);
             }
         }
     }

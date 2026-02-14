@@ -1,6 +1,5 @@
 using System.Buffers;
 using System.Net.Sockets;
-using System.Threading.Channels;
 
 namespace PgBouncer.Core.Pooling;
 
@@ -14,12 +13,15 @@ public class ServerConnection : IServerConnection
     private readonly NetworkStream _stream;
     private DateTime _lastActivity;
     private volatile bool _isDirty;
+    private volatile bool _isBroken;
     private int _generation;
     
     private volatile IBackendPacketHandler? _currentHandler;
     private volatile bool _readerRunning;
     private CancellationTokenSource? _readerCts;
     private Task? _readerTask;
+
+    public bool IsBroken => _isBroken;
 
     public ServerConnection(Socket socket, string database, string username)
     {
@@ -43,7 +45,7 @@ public class ServerConnection : IServerConnection
     {
         get
         {
-            if (_isDirty) return false;
+            if (_isDirty || _isBroken) return false;
             if (!_socket.Connected) return false;
             
             try
@@ -89,27 +91,59 @@ public class ServerConnection : IServerConnection
     private async Task ReadLoopAsync(CancellationToken cancellationToken)
     {
         _readerRunning = true;
-        var buffer = ArrayPool<byte>.Shared.Rent(65536);
+        var headerBuffer = new byte[5];
+        var payloadBuffer = new byte[65536];
         
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                var message = await ReadMessageAsync(_stream, buffer, cancellationToken);
-                if (message == null)
+                if (!await ReadExactAsync(_stream, headerBuffer, cancellationToken))
                 {
                     _currentHandler?.OnBackendDisconnected();
+                    _isBroken = true;
                     break;
+                }
+
+                var messageType = headerBuffer[0];
+                var messageLength = (headerBuffer[1] << 24) | (headerBuffer[2] << 16) | (headerBuffer[3] << 8) | headerBuffer[4];
+                var payloadLength = messageLength - 4;
+
+                byte[]? payload = null;
+                if (payloadLength > 0)
+                {
+                    if (payloadLength > payloadBuffer.Length)
+                    {
+                        _isBroken = true;
+                        _currentHandler?.OnBackendDisconnected();
+                        break;
+                    }
+                    
+                    if (!await ReadExactAsync(_stream, payloadBuffer.AsMemory(0, payloadLength), cancellationToken))
+                    {
+                        _currentHandler?.OnBackendDisconnected();
+                        _isBroken = true;
+                        break;
+                    }
+                    
+                    payload = new byte[payloadLength];
+                    Buffer.BlockCopy(payloadBuffer, 0, payload, 0, payloadLength);
                 }
 
                 var handler = _currentHandler;
                 if (handler != null)
                 {
-                    await handler.HandlePacketAsync(message, _generation);
+                    var fullPacket = new byte[5 + (payloadLength > 0 ? payloadLength : 0)];
+                    Buffer.BlockCopy(headerBuffer, 0, fullPacket, 0, 5);
+                    if (payload != null)
+                    {
+                        Buffer.BlockCopy(payload, 0, fullPacket, 5, payloadLength);
+                    }
+                    await handler.HandlePacketAsync(fullPacket, _generation);
                 }
                 else
                 {
-                    _isDirty = true;
+                    ProcessIdleMessage((char)messageType);
                 }
             }
         }
@@ -119,36 +153,46 @@ public class ServerConnection : IServerConnection
         catch (Exception)
         {
             _currentHandler?.OnBackendDisconnected();
+            _isBroken = true;
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
             _readerRunning = false;
         }
     }
 
-    private static async Task<byte[]?> ReadMessageAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
+    private void ProcessIdleMessage(char messageType)
     {
-        if (!await ReadExactAsync(stream, buffer.AsMemory(0, 5), cancellationToken))
-            return null;
-
-        int length = (buffer[1] << 24) | (buffer[2] << 16) | (buffer[3] << 8) | buffer[4];
-        
-        var bodyLength = length - 4;
-        var totalLength = 5 + bodyLength;
-
-        if (bodyLength > 0)
+        switch (messageType)
         {
-            if (totalLength > buffer.Length)
-                return null;
+            case 'N':
+            case 'S':
+            case 'A':
+                break;
 
-            if (!await ReadExactAsync(stream, buffer.AsMemory(5, bodyLength), cancellationToken))
-                return null;
+            case 'E':
+                _isBroken = true;
+                break;
+
+            case 'Z':
+                break;
+
+            default:
+                _isBroken = true;
+                break;
         }
+    }
 
-        var message = new byte[totalLength];
-        Buffer.BlockCopy(buffer, 0, message, 0, totalLength);
-        return message;
+    private static async Task<bool> ReadExactAsync(Stream stream, byte[] buffer, CancellationToken cancellationToken)
+    {
+        var totalRead = 0;
+        while (totalRead < buffer.Length)
+        {
+            var read = await stream.ReadAsync(buffer.AsMemory(totalRead), cancellationToken);
+            if (read == 0) return false;
+            totalRead += read;
+        }
+        return true;
     }
 
     private static async Task<bool> ReadExactAsync(Stream stream, Memory<byte> buffer, CancellationToken cancellationToken)

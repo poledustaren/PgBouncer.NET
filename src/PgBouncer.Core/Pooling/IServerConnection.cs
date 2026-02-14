@@ -1,5 +1,3 @@
-using System.Threading.Channels;
-
 namespace PgBouncer.Core.Pooling;
 
 public interface IServerConnection : IAsyncDisposable
@@ -9,6 +7,7 @@ public interface IServerConnection : IAsyncDisposable
     string Username { get; }
     Stream Stream { get; }
     bool IsHealthy { get; }
+    bool IsBroken { get; }
     DateTime LastActivity { get; }
     int Generation { get; set; }
     
