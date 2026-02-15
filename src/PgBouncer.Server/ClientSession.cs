@@ -447,8 +447,14 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     public void OnBackendDisconnected(Exception? ex)
     {
         _logger.LogWarning(ex, "[Session {Id}] Backend disconnected", _sessionInfo.Id);
-        // Отправляем ошибку клиенту перед закрытием
-        _ = SendFatalErrorToClientAsync("Backend connection lost");
+        
+        // Сначала отправляем ошибку клиенту (синхронно), затем закрываем
+        try
+        {
+            SendFatalErrorToClientAsync("Backend connection lost").Wait(TimeSpan.FromSeconds(2));
+        }
+        catch { /* Игнорируем ошибки при отправке */ }
+        
         AbortSession();
     }
 

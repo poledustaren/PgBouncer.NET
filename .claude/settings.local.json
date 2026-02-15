@@ -9,7 +9,8 @@
       "Bash(dotnet build:*)",
       "Bash(taskkill:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(timeout:*)"
     ]
   }
 }

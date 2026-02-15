@@ -183,7 +183,7 @@ public sealed class BackendConnection : IServerConnection
         {
             while (true)
             {
-                var result = await _reader.ReadAsync();
+                var result = await _reader.ReadAsync(_readLoopCts.Token);
                 var buffer = result.Buffer;
 
                 while (TryParseMessage(ref buffer, out var message, out var msgType))
@@ -203,6 +203,10 @@ public sealed class BackendConnection : IServerConnection
 
                 if (result.IsCompleted || result.IsCanceled) break;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown - expected
         }
         catch (Exception ex)
         {
