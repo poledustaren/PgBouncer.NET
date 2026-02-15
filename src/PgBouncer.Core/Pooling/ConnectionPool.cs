@@ -124,28 +124,31 @@ public class ConnectionPool : IConnectionPool
         // 1. Пытаемся взять из idle (zero-alloc fast path)
         while (_idleChannel.Reader.TryRead(out var connection))
         {
-            // Check circuit breaker
-            if (!_circuitBreaker.IsAllowed(connection.Id))
+            // Проверяем health первым делом
+            if (!connection.IsHealthy)
             {
-                _logger?.LogWarning("Circuit breaker open for connection {ConnectionId}, skipping",
+                _logger?.LogWarning("Dead connection {ConnectionId} found in pool, disposing",
                     connection.Id);
-                // Put it back and try next
-                await _idleChannel.Writer.WriteAsync(connection, cancellationToken);
+                await connection.DisposeAsync();
+                Interlocked.Decrement(ref _currentSize);
                 continue;
             }
 
-            if (connection.IsHealthy)
+            // Check circuit breaker
+            if (!_circuitBreaker.IsAllowed(connection.Id))
             {
-                _activeConnections[connection.Id] = connection;
-                connection.UpdateActivity();
-                _logger?.LogTrace("Переиспользовано соединение {ConnectionId} для {Database}/{User}",
-                    connection.Id, _database, _username);
-                return connection;
+                _logger?.LogWarning("Circuit breaker open for connection {ConnectionId}, disposing",
+                    connection.Id);
+                await connection.DisposeAsync();
+                Interlocked.Decrement(ref _currentSize);
+                continue;
             }
 
-            // Соединение мёртвое, закрываем
-            await connection.DisposeAsync();
-            Interlocked.Decrement(ref _currentSize);
+            _activeConnections[connection.Id] = connection;
+            connection.UpdateActivity();
+            _logger?.LogDebug("Reusing connection {ConnectionId} for {Database}/{User}",
+                connection.Id, _database, _username);
+            return connection;
         }
 
         // 2. Пытаемся создать новое (если лимит не достигнут)
@@ -262,23 +265,21 @@ public class ConnectionPool : IConnectionPool
         _logger?.LogInformation("[CreateConnection] Starting connection to {Host}:{Port} for database {Database}, user {User}",
             _backendConfig.Host, _backendConfig.Port, _database, _username);
 
-        var connector = new Protocol.BackendConnector(_backendConfig, _logger);
-
         try
         {
-            _logger?.LogDebug("[CreateConnection] Calling ConnectAndAuthenticateAsync...");
+            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+            {
+                NoDelay = true,
+                SendBufferSize = 64 * 1024,
+                ReceiveBufferSize = 64 * 1024
+            };
 
-            // Подключаемся и проходим аутентификацию
-            var (socket, stream) = await connector.ConnectAndAuthenticateAsync(
-                _database,
-                _username,
-                _password,
-                cancellationToken);
+            await socket.ConnectAsync(_backendConfig.Host, _backendConfig.Port, cancellationToken);
 
-            _logger?.LogDebug("[CreateConnection] ConnectAndAuthenticateAsync succeeded, creating ServerConnection...");
+            _logger?.LogDebug("[CreateConnection] Socket connected, creating BackendConnection...");
 
-            // Создаем соединение с полученным сокетом и стримом
-            var connection = new ServerConnection(socket, stream, _database, _username);
+            var connection = new BackendConnection(socket, _database, _username, _logger);
+            await connection.ConnectAndAuthenticateAsync(_password, cancellationToken);
 
             _logger?.LogInformation("[CreateConnection] SUCCESS: Connection {Id} created and authenticated", connection.Id);
 
@@ -354,27 +355,61 @@ public class ConnectionPool : IConnectionPool
 
     public void Dispose()
     {
+        DisposeAsync().AsTask().Wait();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
         if (_disposed) return;
         _disposed = true;
 
         _idleCleanupTimer?.Dispose();
-
-        // Завершаем канал
+        
+        // Запрещаем добавление новых соединений в канал
         _idleChannel.Writer.Complete();
+        
+        // Пачка тасков для параллельного закрытия
+        var closeTasks = new List<Task>();
 
         // Закрываем все активные соединения
         foreach (var conn in _activeConnections.Values)
         {
-            conn.DisposeAsync().AsTask().Wait();
+            closeTasks.Add(CloseBackendGracefullyAsync(conn));
         }
 
-        // Закрываем все idle соединения
-        while (_idleChannel.Reader.TryRead(out var conn))
+        // Вычитываем все свободные соединения из пула
+        while (_idleChannel.Reader.TryRead(out var backend))
         {
-            conn.DisposeAsync().AsTask().Wait();
+            closeTasks.Add(CloseBackendGracefullyAsync(backend));
         }
+
+        // Ждем, пока все отправят пакет Terminate
+        await Task.WhenAll(closeTasks);
 
         _createLock.Dispose();
+    }
+
+    private async Task CloseBackendGracefullyAsync(IServerConnection backend)
+    {
+        try
+        {
+            if (backend.IsHealthy)
+            {
+                // Отправляем пакет Terminate ('X') серверу PostgreSQL
+                // Формат: Type 'X' (1 байт) + Length (4 байта, значение = 4)
+                byte[] terminateMsg = { (byte)'X', 0, 0, 0, 4 };
+                await backend.Stream.WriteAsync(terminateMsg);
+                await backend.Stream.FlushAsync();
+            }
+        }
+        catch 
+        { 
+            // Игнорируем ошибки сети при выключении 
+        }
+        finally
+        {
+            await backend.DisposeAsync();
+        }
     }
 }
 

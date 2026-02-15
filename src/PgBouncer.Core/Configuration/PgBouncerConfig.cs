@@ -8,12 +8,12 @@ public class PgBouncerConfig
     /// <summary>
     /// Порт для прослушивания клиентских соединений
     /// </summary>
-    public int ListenPort { get; set; } = 6442;
+    public int ListenPort { get; set; } = 6432;
 
     /// <summary>
     /// Порт для Dashboard API
     /// </summary>
-    public int DashboardPort { get; set; } = 5083;
+    public int DashboardPort { get; set; } = 5081;
 
     /// <summary>
     /// Настройки бэкенда PostgreSQL

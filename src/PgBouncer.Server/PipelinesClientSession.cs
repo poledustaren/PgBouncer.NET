@@ -48,6 +48,8 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
 
     private readonly CancellationTokenSource _cts = new();
 
+    private bool _pendingBackendRelease;
+
     /// <summary>
     /// Creates a new PipelinesClientSession
     /// </summary>
@@ -718,26 +720,37 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
 
         if (_config.Pool.Mode == PoolingMode.Transaction && msgTypeChar == PgMessageTypes.ReadyForQuery)
         {
-            // Check transaction state
             byte txState = (byte)'I';
             if (message.Length >= 6)
             {
-                var dataSpan = new ReadOnlySpan<byte>(data);
-                txState = dataSpan[5];
+                txState = data[5];
             }
 
             if (txState == 'I')
             {
-                // Transaction idle - schedule backend release
-                _ = Task.Run(async () =>
-                {
-                    await Task.Delay(100); // Small delay to ensure message is sent
-                    await ReleaseBackendAsync();
-                });
+                _pendingBackendRelease = true;
             }
         }
 
         _backendToClientChannel.Writer.TryWrite(data);
+
+        if (_pendingBackendRelease)
+        {
+            _pendingBackendRelease = false;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _clientWritePipe.Writer.FlushAsync();
+                    await ReleaseBackendAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Session {Id}] Failed to release backend", _sessionInfo.Id);
+                }
+            });
+        }
+
         return ValueTask.CompletedTask;
     }
 

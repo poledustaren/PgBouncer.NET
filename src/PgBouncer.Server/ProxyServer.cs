@@ -227,47 +227,16 @@ public class ProxyServer : IDisposable
         Interlocked.Increment(ref _activeSessions);
         Interlocked.Increment(ref _totalConnections);
 
-        // Choose session type based on configuration
-        IDisposable session;
-
-        if (_config.Pool.UsePipelinesArchitecture)
-        {
-            _logger.LogDebug("[Session {Id}] Using PipelinesClientSession (System.IO.Pipelines)", sessionId);
-            session = new PipelinesClientSession(
-                clientSocket,
-                _config,
-                _poolManager,
-                _logger,
-                sessionInfo);
-        }
-        else
-        {
-            _logger.LogDebug("[Session {Id}] using ClientSession (legacy Stream-based)", sessionId);
-            session = new ClientSession(
-                clientSocket,
-                _config,
-                _poolManager,
-                _backendConnectionLimit,
-                _logger,
-                sessionInfo,
-                () => Interlocked.Increment(ref _activeBackendConnections),
-                () => Interlocked.Decrement(ref _activeBackendConnections),
-                () => Interlocked.Increment(ref _waitingClients),
-                () => Interlocked.Decrement(ref _waitingClients),
-                RecordWaitTime,
-                RecordTimeout);
-        }
+        using var session = new ClientSession(
+            clientSocket,
+            _config,
+            _poolManager,
+            _logger,
+            sessionInfo);
 
         try
         {
-            if (session is PipelinesClientSession pipelinesSession)
-            {
-                await pipelinesSession.RunAsync(cancellationToken);
-            }
-            else
-            {
-                await ((ClientSession)session).RunAsync(cancellationToken);
-            }
+            await session.RunAsync(cancellationToken);
         }
         catch (Exception ex)
         {
@@ -276,7 +245,6 @@ public class ProxyServer : IDisposable
         }
         finally
         {
-            session.Dispose();
             sessionInfo.State = SessionState.Completed;
             _sessions.TryRemove(sessionId, out _);
             Interlocked.Decrement(ref _activeSessions);
