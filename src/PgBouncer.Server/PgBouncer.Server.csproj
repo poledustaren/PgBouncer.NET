@@ -5,6 +5,22 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AssemblyName>PgBouncer.Net</AssemblyName>
+    <Product>PgBouncer.NET</Product>
+    <Version>1.0.0</Version>
+    <Company>PgBouncer.NET</Company>
+    <Description>High-performance PostgreSQL connection pooler</Description>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishTrimmed>true</PublishTrimmed>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,119 +35,16 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin4\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin3\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin2\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin2\Debug\net8.0\appsettings.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin5\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Core.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Core.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin6\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin6\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Core.deps.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin5\Debug\net8.0\bin4\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin5\Debug\net8.0\bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin5\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin5\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin5\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin5\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin4\Debug\net8.0\bin3\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin4\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin4\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin3\Debug\net8.0\bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.runtime.json" />
-    <Content Remove="bin2\Debug\net8.0\PgBouncer.Server.staticwebassets.endpoints.json" />
-    <Content Remove="bin2\Debug\net8.0\PgBouncer.Server.runtimeconfig.json" />
-    <Content Remove="bin2\Debug\net8.0\PgBouncer.Server.deps.json" />
-    <Content Remove="bin3\Debug\net8.0\PgBouncer.Core.deps.json" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Remove="bin6\Debug\net8.0\PgBouncer.Server.pdb" />
-    <None Remove="bin6\Debug\net8.0\PgBouncer.Server.exe" />
-    <None Remove="bin6\Debug\net8.0\PgBouncer.Server.dll" />
-    <None Remove="bin5\Debug\net8.0\PgBouncer.Server.exe" />
-    <None Remove="bin5\Debug\net8.0\PgBouncer.Server.dll" />
-    <None Remove="bin5\Debug\net8.0\PgBouncer.Core.pdb" />
-    <None Remove="bin5\Debug\net8.0\PgBouncer.Core.dll" />
-    <None Remove="bin4\Debug\net8.0\PgBouncer.Server.exe" />
-    <None Remove="bin3\Debug\net8.0\PgBouncer.Core.dll" />
-    <None Remove="bin2\Debug\net8.0\PgBouncer.Core.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.Sinks.File.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.Sinks.Console.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.Settings.Configuration.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.Extensions.Hosting.dll" />
-    <None Remove="bin6\Debug\net8.0\Serilog.AspNetCore.dll" />
-    <None Remove="bin6\Debug\net8.0\Microsoft.OpenApi.dll" />
-    <None Remove="bin6\Debug\net8.0\Microsoft.Extensions.DependencyModel.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.Sinks.File.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.Sinks.Console.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.Settings.Configuration.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.Extensions.Logging.dll" />
-    <None Remove="bin5\Debug\net8.0\Serilog.AspNetCore.dll" />
-    <None Remove="bin5\Debug\net8.0\Microsoft.OpenApi.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Sinks.File.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Sinks.Debug.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Sinks.Console.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Settings.Configuration.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Formatting.Compact.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.Extensions.Hosting.dll" />
-    <None Remove="bin4\Debug\net8.0\Serilog.AspNetCore.dll" />
-    <None Remove="bin4\Debug\net8.0\Microsoft.OpenApi.dll" />
-    <None Remove="bin4\Debug\net8.0\Microsoft.Extensions.DependencyModel.dll" />
-    <None Remove="bin3\Debug\net8.0\Serilog.dll" />
-    <None Remove="bin3\Debug\net8.0\Serilog.AspNetCore.dll" />
-    <None Remove="bin3\Debug\net8.0\Microsoft.OpenApi.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.Sinks.File.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.Sinks.Debug.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.Sinks.Console.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.Formatting.Compact.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.Extensions.Hosting.dll" />
-    <None Remove="bin2\Debug\net8.0\Serilog.AspNetCore.dll" />
-    <None Remove="bin2\Debug\net8.0\Microsoft.Extensions.DependencyModel.dll" />
-    <None Remove="bin6\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerGen.dll" />
-    <None Remove="bin5\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerGen.dll" />
-    <None Remove="bin4\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerUI.dll" />
-    <None Remove="bin4\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerGen.dll" />
-    <None Remove="bin3\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerUI.dll" />
-    <None Remove="bin3\Debug\net8.0\Swashbuckle.AspNetCore.Swagger.dll" />
-    <None Remove="bin2\Debug\net8.0\Swashbuckle.AspNetCore.SwaggerGen.dll" />
+    <Content Remove="bin6\**" />
+    <Content Remove="bin5\**" />
+    <Content Remove="bin4\**" />
+    <Content Remove="bin3\**" />
+    <Content Remove="bin2\**" />
+    <None Remove="bin6\**" />
+    <None Remove="bin5\**" />
+    <None Remove="bin4\**" />
+    <None Remove="bin3\**" />
+    <None Remove="bin2\**" />
   </ItemGroup>
 
 </Project>
