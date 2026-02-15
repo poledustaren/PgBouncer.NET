@@ -28,7 +28,7 @@ public sealed class BackendConnection : IServerConnection
 
     Stream IServerConnection.Stream => throw new NotSupportedException("Use Writer for Pipelines I/O");
     public bool IsBroken => _isBroken == 1;
-    public bool IsHealthy => !IsBroken && _socket.Connected;
+    public bool IsHealthy => !IsBroken; // НЕ проверяем _socket.Connected - он не надежен
     public DateTime LastActivity => _lastActivity;
     public int Generation { get; set; }
 
@@ -147,6 +147,10 @@ public sealed class BackendConnection : IServerConnection
 
     public void AttachHandler(IBackendHandler handler)
     {
+        if (_handler != null)
+        {
+            throw new InvalidOperationException("Cannot attach handler: backend is already in use by another session. Missing Detach?");
+        }
         _handler = handler ?? throw new ArgumentNullException(nameof(handler));
         Generation++;
         UpdateActivity();
@@ -266,7 +270,7 @@ public sealed class BackendConnection : IServerConnection
         }
     }
 
-    private void MarkAsBroken() => Interlocked.Exchange(ref _isBroken, 1);
+    public void MarkAsBroken() => Interlocked.Exchange(ref _isBroken, 1);
 
     public async ValueTask DisposeAsync()
     {

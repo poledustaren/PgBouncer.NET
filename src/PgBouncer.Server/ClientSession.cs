@@ -2,6 +2,7 @@ using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using System.Text;
@@ -15,6 +16,8 @@ namespace PgBouncer.Server;
 
 public sealed class ClientSession : IBackendHandler, IDisposable
 {
+    private const int MaxRetries = 2;
+
     private readonly Socket _clientSocket;
     private readonly PipeReader _clientReader;
     private readonly PipeWriter _clientWriter;
@@ -28,6 +31,9 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     private string? _database;
     private string? _username;
     private string? _password;
+    private int _pendingQueries;
+    private int _isAcquiring;
+    private readonly object _backendLock = new();
 
     public ClientSession(
         Socket clientSocket,
@@ -238,44 +244,132 @@ public sealed class ClientSession : IBackendHandler, IDisposable
 
     private async Task RunMainLoopAsync(CancellationToken cancellationToken)
     {
-        while (true)
+        if (_pool == null)
+            return;
+
+        try
         {
-            ReadResult result = await _clientReader.ReadAsync(cancellationToken);
-            ReadOnlySequence<byte> buffer = result.Buffer;
-
-            if (result.IsCompleted || result.IsCanceled)
-                break;
-
-            while (TryParseFrontendMessage(ref buffer, out ReadOnlySequence<byte> message, out byte msgType))
+            while (true)
             {
-                if ((char)msgType == 'X')
+                ReadResult result = await _clientReader.ReadAsync(cancellationToken);
+                ReadOnlySequence<byte> buffer = result.Buffer;
+
+                if (result.IsCompleted || result.IsCanceled)
+                    break;
+
+                while (TryParseFrontendMessage(ref buffer, out ReadOnlySequence<byte> message, out byte msgType))
                 {
-                    _logger.LogDebug("[Session {Id}] Terminate", _sessionInfo.Id);
-                    return;
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    char typeChar = (char)msgType;
+                    if (typeChar == 'X')
+                    {
+                        _logger.LogDebug("[Session {Id}] Terminate", _sessionInfo.Id);
+                        return;
+                    }
+
+                    bool isQueryOrSync = (typeChar == 'Q' || typeChar == 'S');
+                    
+                    if (isQueryOrSync)
+                    {
+                        Interlocked.Increment(ref _pendingQueries);
+                    }
+
+                    bool messageSent = false;
+                    int currentRetry = 0;
+
+                    while (!messageSent)
+                    {
+                        BackendConnection backend = await GetOrAcquireBackendAsync(cancellationToken);
+
+                        try
+                        {
+                            if (message.IsSingleSegment)
+                            {
+                                await backend.Writer.WriteAsync(message.First, cancellationToken);
+                            }
+                            else
+                            {
+                                foreach (var segment in message)
+                                {
+                                    await backend.Writer.WriteAsync(segment, cancellationToken);
+                                }
+                            }
+                            
+                            await backend.Writer.FlushAsync(cancellationToken);
+                            messageSent = true;
+                        }
+                        catch (Exception ex) when (ex is IOException || ex is SocketException)
+                        {
+                            backend.MarkAsBroken();
+                            ReleaseBackend();
+
+                            if (currentRetry >= MaxRetries || Volatile.Read(ref _pendingQueries) > 1)
+                            {
+                                _logger.LogWarning("[Session {Id}] Retry failed after {Retries} attempts: {Message}", 
+                                    _sessionInfo.Id, currentRetry, ex.Message);
+                                if (isQueryOrSync) Interlocked.Decrement(ref _pendingQueries);
+                                throw;
+                            }
+
+                            currentRetry++;
+                            _logger.LogDebug("[Session {Id}] Transparent retry {Retry}/{Max}: {Message}", 
+                                _sessionInfo.Id, currentRetry, MaxRetries, ex.Message);
+                        }
+                        catch
+                        {
+                            backend.MarkAsBroken();
+                            ReleaseBackend();
+                            if (isQueryOrSync) Interlocked.Decrement(ref _pendingQueries);
+                            throw;
+                        }
+                    }
                 }
 
+                _clientReader.AdvanceTo(buffer.Start, buffer.End);
+            }
+        }
+        finally
+        {
+            ReleaseBackend();
+        }
+    }
+
+    private async ValueTask<BackendConnection> GetOrAcquireBackendAsync(CancellationToken cancellationToken)
+    {
+        Interlocked.Increment(ref _isAcquiring);
+        
+        lock (_backendLock)
+        {
+            if (_currentBackend != null)
+            {
+                return _currentBackend;
+            }
+        }
+
+        try
+        {
+            var conn = await _pool!.AcquireAsync(cancellationToken);
+            var newBackend = (BackendConnection)conn;
+
+            lock (_backendLock)
+            {
                 if (_currentBackend == null)
                 {
-                    var conn = await _pool!.AcquireAsync(cancellationToken);
-                    _currentBackend = (BackendConnection)conn;
+                    _currentBackend = newBackend;
                     _currentBackend.AttachHandler(this);
-                }
-
-                if (message.IsSingleSegment)
-                {
-                    await _currentBackend.Writer.WriteAsync(message.First, cancellationToken);
+                    return _currentBackend;
                 }
                 else
                 {
-                    foreach (var segment in message)
-                    {
-                        await _currentBackend.Writer.WriteAsync(segment, cancellationToken);
-                    }
+                    _pool!.Release(newBackend);
+                    return _currentBackend;
                 }
-                await _currentBackend.Writer.FlushAsync(cancellationToken);
             }
-
-            _clientReader.AdvanceTo(buffer.Start, buffer.End);
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _isAcquiring);
         }
     }
 
@@ -309,43 +403,151 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         {
             if (message.IsSingleSegment)
             {
-                await _clientWriter.WriteAsync(message.First);
+                _clientWriter.Write(message.FirstSpan);
             }
             else
             {
                 foreach (ReadOnlyMemory<byte> segment in message)
                 {
-                    await _clientWriter.WriteAsync(segment);
+                    _clientWriter.Write(segment.Span);
                 }
             }
 
-            if ((char)messageType == 'Z')
+            FlushResult flushResult = await _clientWriter.FlushAsync();
+
+            if (flushResult.IsCanceled || flushResult.IsCompleted)
             {
-                await _clientWriter.FlushAsync();
-                ReleaseBackend();
+                AbortSession();
+                return;
+            }
+
+            if (messageType == (byte)'Z')
+            {
+                int pending = Interlocked.Decrement(ref _pendingQueries);
+                
+                if (pending < 0)
+                {
+                    Interlocked.Exchange(ref _pendingQueries, 0);
+                    pending = 0;
+                }
+
+                if (pending == 0)
+                {
+                    ReleaseBackendIfIdle();
+                }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            ReleaseBackend();
-            _clientSocket.Close();
+            _logger.LogDebug("[Session {Id}] Dropping client connection: {Message}", _sessionInfo.Id, ex.Message);
+            AbortSession();
         }
     }
 
     public void OnBackendDisconnected(Exception? ex)
     {
         _logger.LogWarning(ex, "[Session {Id}] Backend disconnected", _sessionInfo.Id);
-        _currentBackend = null;
-        _clientSocket.Close();
+        // Отправляем ошибку клиенту перед закрытием
+        _ = SendFatalErrorToClientAsync("Backend connection lost");
+        AbortSession();
+    }
+
+    private async Task SendFatalErrorToClientAsync(string message)
+    {
+        try
+        {
+            // Формат ErrorResponse 'E': 'S' SEVERITY \0 'C' CODE \0 'M' MESSAGE \0\0
+            using var ms = new MemoryStream();
+            
+            // Type byte
+            ms.WriteByte((byte)'E');
+            
+            // We'll calculate and write length at the end
+            int lengthPosition = (int)ms.Position;
+            ms.Write(new byte[4], 0, 4); // Placeholder for length
+            
+            // Severity
+            ms.WriteByte((byte)'S');
+            var severity = System.Text.Encoding.UTF8.GetBytes("FATAL");
+            ms.Write(severity, 0, severity.Length);
+            ms.WriteByte(0);
+            
+            // SQLSTATE Code
+            ms.WriteByte((byte)'C');
+            var code = System.Text.Encoding.UTF8.GetBytes("08006"); // connection_failure
+            ms.Write(code, 0, code.Length);
+            ms.WriteByte(0);
+            
+            // Message
+            ms.WriteByte((byte)'M');
+            var msg = System.Text.Encoding.UTF8.GetBytes(message);
+            ms.Write(msg, 0, msg.Length);
+            ms.WriteByte(0);
+            
+            // Null terminator
+            ms.WriteByte(0);
+            
+            // Update length
+            int totalLength = (int)ms.Position;
+            ms.Position = lengthPosition;
+            byte[] lengthBytes = new byte[4];
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(lengthBytes, totalLength - 1);
+            ms.Write(lengthBytes, 0, 4);
+            
+            await _clientWriter.WriteAsync(ms.ToArray());
+            await _clientWriter.FlushAsync();
+        }
+        catch { /* Игнорируем, клиент уже мертв */ }
+    }
+
+    private void AbortSession()
+    {
+        ReleaseBackend();
+        
+        try 
+        {
+            _clientSocket.Close(); 
+        }
+        catch { /* Игнорируем ошибки при жестком закрытии */ }
+    }
+
+    private void ReleaseBackendIfIdle()
+    {
+        BackendConnection? backendToRelease = null;
+
+        lock (_backendLock)
+        {
+            if (Volatile.Read(ref _pendingQueries) > 0)
+                return;
+
+            if (Volatile.Read(ref _isAcquiring) > 0)
+                return;
+
+            backendToRelease = _currentBackend;
+            _currentBackend = null;
+        }
+
+        if (backendToRelease != null)
+        {
+            backendToRelease.DetachHandler();
+            _pool?.Release(backendToRelease);
+        }
     }
 
     private void ReleaseBackend()
     {
-        if (_currentBackend != null)
+        BackendConnection? backendToRelease = null;
+
+        lock (_backendLock)
         {
-            _currentBackend.DetachHandler();
-            _pool!.Release(_currentBackend);
+            backendToRelease = _currentBackend;
             _currentBackend = null;
+        }
+
+        if (backendToRelease != null)
+        {
+            backendToRelease.DetachHandler();
+            _pool?.Release(backendToRelease);
         }
     }
 
