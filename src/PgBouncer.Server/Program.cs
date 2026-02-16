@@ -12,14 +12,29 @@ using System.Text.Json;
 // Генерация уникального ID запуска для логов
 var runId = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
+// Определяем, запущены ли мы как Windows Service
+bool isWindowsService = OperatingSystem.IsWindows() &&
+    !Environment.UserInteractive;
+
 // Настройка Serilog
-Log.Logger = new LoggerConfiguration()
+var loggerConfig = new LoggerConfiguration()
     .MinimumLevel.Debug()
-    .WriteTo.Console()
-    .WriteTo.File($"logs/log_{runId}.txt", rollingInterval: RollingInterval.Infinite)
-    .CreateLogger();
+    .WriteTo.Console();
+
+// Если Windows Service - пишем в EventLog
+if (isWindowsService)
+{
+    loggerConfig.WriteTo.EventLog("PgBouncer.NET", manageEventSource: true);
+}
+else
+{
+    loggerConfig.WriteTo.File($"logs/log_{runId}.txt", rollingInterval: RollingInterval.Infinite);
+}
+
+Log.Logger = loggerConfig.CreateLogger();
 
 Log.Information($"=== ЗАПУСК PgBouncer.NET. RunID: {runId} ===");
+Log.Information($"Режим: {(isWindowsService ? "Windows Service" : "Console")}");
 
 try
 {
@@ -30,6 +45,16 @@ try
     ThreadPool.SetMinThreads(1000, 1000);
 
     var builder = WebApplication.CreateBuilder(args);
+    
+    // Настройка для работы как Windows Service
+    if (isWindowsService)
+    {
+        builder.Host.UseWindowsService(options =>
+        {
+            options.ServiceName = "PgBouncer.NET";
+        });
+    }
+    
     builder.Host.UseSerilog();
 
     // Конфигурация
@@ -43,6 +68,9 @@ try
         var logger = sp.GetRequiredService<ILogger<PoolManager>>();
         return new PoolManager(cfg, logger);
     });
+
+    // Балансировщик backend серверов (TODO: добавить когда будет реализован)
+    // builder.Services.AddSingleton<BackendLoadBalancer>();
 
     // Прокси-сервер
     builder.Services.AddSingleton<ProxyServer>();
@@ -110,17 +138,37 @@ try
         })
     }));
 
-    // Баннер
-    Console.WriteLine();
-    Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
-    Console.WriteLine("║                   PgBouncer.NET                          ║");
-    Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
-    Console.WriteLine();
-    Console.WriteLine($"  Прокси:     localhost:{config.ListenPort}");
-    Console.WriteLine($"  Dashboard:  http://localhost:{config.DashboardPort}/");
-    Console.WriteLine($"  API:        http://localhost:{config.DashboardPort}/api/stats");
-    Console.WriteLine($"  Backend:    {config.Backend.Host}:{config.Backend.Port}");
-    Console.WriteLine();
+    // Health check endpoint
+    app.MapGet("/health", () => Results.Ok(new 
+    { 
+        Status = "Healthy", 
+        Timestamp = DateTime.UtcNow,
+        Version = "1.0.0"
+    }));
+
+    // Баннер (только в консольном режиме)
+    if (!isWindowsService)
+    {
+        Console.WriteLine();
+        Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║                   PgBouncer.NET                          ║");
+        Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
+        Console.WriteLine();
+        Console.WriteLine($"  Прокси:     localhost:{config.ListenPort}");
+        Console.WriteLine($"  Dashboard:  http://localhost:{config.DashboardPort}/");
+        Console.WriteLine($"  API:        http://localhost:{config.DashboardPort}/api/stats");
+        Console.WriteLine($"  Health:     http://localhost:{config.DashboardPort}/health");
+        
+        // Показываем backend сервер
+        Console.WriteLine($"  Backend:    {config.Backend.Host}:{config.Backend.Port}");
+        Console.WriteLine();
+    }
+    else
+    {
+        Log.Information("PgBouncer.NET запущен как Windows Service");
+        Log.Information("Прокси: port {Port}, Dashboard: port {DashboardPort}", 
+            config.ListenPort, config.DashboardPort);
+    }
 
     await app.RunAsync($"http://0.0.0.0:{config.DashboardPort}");
 }

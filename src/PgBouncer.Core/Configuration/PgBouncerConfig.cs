@@ -44,7 +44,12 @@ public class BackendConfig
     /// <summary>
     /// Порт PostgreSQL сервера
     /// </summary>
-    public int Port { get; set; } = 5437;
+    public int Port { get; set; } = 5432;
+
+    /// <summary>
+    /// База данных по умолчанию для прогрева и служебных операций
+    /// </summary>
+    public string DefaultDatabase { get; set; } = "postgres";
 
     /// <summary>
     /// Админский пользователь для служебных операций

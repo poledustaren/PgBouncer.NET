@@ -1,20 +1,18 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Buffers.Binary;
 
 namespace PgBouncer.Core.Protocol;
 
 /// <summary>
 /// Обработка аутентификации PostgreSQL
+/// Поддерживает: CleartextPassword, MD5Password, SASL/SCRAM-SHA-256, SASL/SCRAM-SHA-256-PLUS
 /// </summary>
 public static class PostgresAuth
 {
     /// <summary>
     /// Генерация MD5 хеша пароля для PostgreSQL
     /// </summary>
-    /// <param name="username">Имя пользователя</param>
-    /// <param name="password">Пароль</param>
-    /// <param name="salt">4-байтовая соль от сервера</param>
-    /// <returns>MD5 хеш в формате "md5" + hex</returns>
     public static string GenerateMd5Password(string username, string password, byte[] salt)
     {
         // Шаг 1: md5(password + username)
@@ -38,80 +36,71 @@ public static class PostgresAuth
     public static byte[] CreatePasswordMessage(string password)
     {
         var passwordBytes = Encoding.UTF8.GetBytes(password);
-        var length = 4 + passwordBytes.Length + 1; // length + password + null terminator
+        var length = 4 + passwordBytes.Length + 1;
 
         var message = new byte[1 + length];
-        message[0] = (byte)'p'; // PasswordMessage type
+        message[0] = (byte)'p';
 
-        // Length (big-endian)
-        message[1] = (byte)(length >> 24);
-        message[2] = (byte)(length >> 16);
-        message[3] = (byte)(length >> 8);
-        message[4] = (byte)length;
-
-        // Password
+        BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(1), length);
         Array.Copy(passwordBytes, 0, message, 5, passwordBytes.Length);
-        // Null terminator уже 0 по умолчанию
+        // null terminator already 0
 
         return message;
     }
 
     /// <summary>
-    /// Создать StartupMessage для подключения к PostgreSQL
+    /// Создать SASLInitialResponse для SCRAM-SHA-256
     /// </summary>
-    public static byte[] CreateStartupMessage(string database, string username)
+    public static byte[] CreateSASLInitialResponse(string mechanism, string clientFirstMessage)
     {
-        var parameters = new Dictionary<string, string>
-        {
-            { "user", username },
-            { "database", database },
-            { "client_encoding", "UTF8" },
-            { "application_name", "PgBouncer.NET" }
-        };
+        var mechanismBytes = Encoding.UTF8.GetBytes(mechanism);
+        var responseBytes = Encoding.UTF8.GetBytes(clientFirstMessage);
 
-        using var ms = new MemoryStream();
+        // Формат: механизм + 0 + data_length (big-endian) + data
+        var length = 4 + mechanismBytes.Length + 1 + 4 + responseBytes.Length;
 
-        // Placeholder для длины
-        ms.Write(new byte[4], 0, 4);
+        var message = new byte[1 + length];
+        message[0] = (byte)'p';
 
-        // Protocol version 3.0 (196608 = 3 << 16)
-        var version = new byte[] { 0, 3, 0, 0 };
-        ms.Write(version, 0, 4);
+        var pos = 1;
+        BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(pos), length);
+        pos += 4;
 
-        // Параметры (key=value с null terminators)
-        foreach (var (key, value) in parameters)
-        {
-            var keyBytes = Encoding.UTF8.GetBytes(key);
-            ms.Write(keyBytes, 0, keyBytes.Length);
-            ms.WriteByte(0);
+        Array.Copy(mechanismBytes, 0, message, pos, mechanismBytes.Length);
+        pos += mechanismBytes.Length;
+        message[pos++] = 0;
 
-            var valueBytes = Encoding.UTF8.GetBytes(value);
-            ms.Write(valueBytes, 0, valueBytes.Length);
-            ms.WriteByte(0);
-        }
+        BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(pos), responseBytes.Length);
+        pos += 4;
+        Array.Copy(responseBytes, 0, message, pos, responseBytes.Length);
 
-        // Финальный null terminator
-        ms.WriteByte(0);
+        return message;
+    }
 
-        var result = ms.ToArray();
+    /// <summary>
+    /// Создать SASLResponse сообщение
+    /// </summary>
+    public static byte[] CreateSASLResponse(string data)
+    {
+        var dataBytes = Encoding.UTF8.GetBytes(data);
+        var length = 4 + dataBytes.Length;
 
-        // Записываем длину в начало (big-endian)
-        var length = result.Length;
-        result[0] = (byte)(length >> 24);
-        result[1] = (byte)(length >> 16);
-        result[2] = (byte)(length >> 8);
-        result[3] = (byte)length;
+        var message = new byte[1 + length];
+        message[0] = (byte)'p';
 
-        return result;
+        BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(1), length);
+        Array.Copy(dataBytes, 0, message, 5, dataBytes.Length);
+
+        return message;
     }
 }
 
 /// <summary>
 /// Типы аутентификации PostgreSQL
 /// </summary>
-public enum AuthenticationType
+public enum AuthenticationType : int
 {
-    Ok = 0,              // Auth successful
+    Ok = 0,
     KerberosV5 = 2,
     CleartextPassword = 3,
     MD5Password = 5,
@@ -125,63 +114,169 @@ public enum AuthenticationType
 }
 
 /// <summary>
-/// Сообщение аутентификации от сервера
+/// SCRAM-SHA-256 клиент для PostgreSQL аутентификации
+/// Поддерживает SCRAM-SHA-256 (RFC 7677) и SCRAM-SHA-256-PLUS (RFC 8446, PostgreSQL 17+)
 /// </summary>
-public class AuthenticationMessage : PostgresMessage
+public sealed class ScramSha256Auth
 {
-    public override MessageType Type => MessageType.Authentication;
+    private readonly string _password;
+    private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
+    private string _clientNonce = null!;
+    private byte[] _saltedPassword = null!;
+    private string? _authMessage; // Сохраняем как строку для удобства
+    private bool _usePlus = false; // Использовать SCRAM-SHA-256-PLUS (PostgreSQL 17+)
 
-    public AuthenticationType AuthType { get; set; }
-
-    /// <summary>
-    /// Соль для MD5 (4 байта)
-    /// </summary>
-    public byte[]? Md5Salt { get; set; }
-
-    /// <summary>
-    /// SASL mechanisms (для SCRAM-SHA-256)
-    /// </summary>
-    public List<string>? SaslMechanisms { get; set; }
-
-    public override void WriteTo(Stream stream)
+    public ScramSha256Auth(string password)
     {
-        throw new NotSupportedException("Authentication messages are sent by server");
+        _password = password ?? throw new ArgumentNullException(nameof(password));
     }
 
-    public static AuthenticationMessage Parse(ReadOnlySpan<byte> payload)
+    /// <summary>
+    /// Установить режим PLUS для PostgreSQL 17+
+    /// </summary>
+    public void SetPlusMode() => _usePlus = true;
+
+    /// <summary>
+    /// Создать клиентское первое сообщение (client-first-message)
+    /// Формат: n,,n=user,r=nonce
+    /// </summary>
+    public string CreateClientFirstMessage(string username)
     {
-        if (payload.Length < 4)
-            throw new InvalidOperationException("Invalid authentication message");
+        _clientNonce = GenerateNonce();
+        return $"n,,n={username},r={_clientNonce}";
+    }
 
-        var authType = (AuthenticationType)System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(payload);
+    /// <summary>
+    /// Обработать серверное первое сообщение и создать клиентское последнее сообщение
+    /// Server-first: r=nonce+salt, i=iterations
+    /// </summary>
+    public string ProcessServerFirstAndCreateClientFinal(string serverFirstMessage, string username)
+    {
+        Console.WriteLine($"DEBUG: Processing server first message: {serverFirstMessage}");
+        var parts = serverFirstMessage.Split(',');
+        string? combinedNonce = null;
+        string? saltBase64 = null;
+        int iterations = 4096;
 
-        var message = new AuthenticationMessage { AuthType = authType };
-
-        switch (authType)
+        foreach (var part in parts)
         {
-            case AuthenticationType.MD5Password:
-                if (payload.Length >= 8)
-                {
-                    message.Md5Salt = payload.Slice(4, 4).ToArray();
-                }
-                break;
-
-            case AuthenticationType.SASL:
-                // Парсим список SASL механизмов
-                message.SaslMechanisms = new List<string>();
-                var offset = 4;
-                while (offset < payload.Length)
-                {
-                    var end = payload.Slice(offset).IndexOf((byte)0);
-                    if (end <= 0) break;
-
-                    var mechanism = Encoding.UTF8.GetString(payload.Slice(offset, end));
-                    message.SaslMechanisms.Add(mechanism);
-                    offset += end + 1;
-                }
-                break;
+            if (part.StartsWith("r="))
+                combinedNonce = part[2..];
+            else if (part.StartsWith("s="))
+                saltBase64 = part[2..];
+            else if (part.StartsWith("i="))
+                int.TryParse(part[2..], out iterations);
         }
 
-        return message;
+        if (combinedNonce == null || saltBase64 == null)
+            throw new InvalidOperationException("Invalid SCRAM server-first message");
+
+        if (!combinedNonce.StartsWith(_clientNonce))
+            throw new InvalidOperationException("SCRAM nonce mismatch");
+
+        var salt = Convert.FromBase64String(saltBase64);
+        var normalizedPassword = _password.Normalize(NormalizationForm.FormKC); // SASLprep-ish
+
+        _saltedPassword = Hi(normalizedPassword, salt, iterations);
+
+        // ClientKey = HMAC(SaltedPassword, "Client Key")
+        var clientKey = Hmac(_saltedPassword, Encoding.UTF8.GetBytes("Client Key"));
+        Console.WriteLine($"DEBUG: ClientKey: {Convert.ToBase64String(clientKey)}");
+
+        // StoredKey = H(ClientKey)
+        var storedKey = SHA256.HashData(clientKey);
+        Console.WriteLine($"DEBUG: StoredKey: {Convert.ToBase64String(storedKey)}");
+
+        // AuthMessage
+        var cbFlag = _usePlus ? "p=padding" : "c=biws";
+        var clientFinalMessageWithoutProof = $"{cbFlag},r={combinedNonce}";
+        var clientFirstMessage = $"n={username},r={_clientNonce}";
+        _authMessage = $"{clientFirstMessage},{serverFirstMessage},{clientFinalMessageWithoutProof}";
+        
+        Console.WriteLine($"DEBUG: AuthMessage: {_authMessage}");
+
+        // ClientSignature = HMAC(StoredKey, AuthMessage)
+        var clientSignature = Hmac(storedKey, Encoding.UTF8.GetBytes(_authMessage));
+        Console.WriteLine($"DEBUG: ClientSignature: {Convert.ToBase64String(clientSignature)}");
+
+        // ClientProof = ClientKey XOR ClientSignature
+        var clientProof = new byte[clientKey.Length];
+        for (int i = 0; i < clientKey.Length; i++)
+        {
+            clientProof[i] = (byte)(clientKey[i] ^ clientSignature[i]);
+        }
+
+        var proofBase64 = Convert.ToBase64String(clientProof);
+        Console.WriteLine($"DEBUG: ClientProof: {proofBase64}");
+        
+        return $"{clientFinalMessageWithoutProof},p={proofBase64}";
+    }
+
+    /// <summary>
+    /// Проверить серверную подпись (ServerSignature)
+    /// </summary>
+    public bool VerifyServerSignature(string serverSignatureBase64)
+    {
+        // ServerKey = HMAC(SaltedPassword, "Server Key")
+        var serverKey = Hmac(_saltedPassword, Encoding.UTF8.GetBytes("Server Key"));
+
+        // ServerSignature = HMAC(ServerKey, AuthMessage)
+        var expectedServerSignature = Hmac(serverKey, Encoding.UTF8.GetBytes(_authMessage!));
+        var actualServerSignature = Convert.FromBase64String(serverSignatureBase64);
+
+        return CryptographicOperations.FixedTimeEquals(expectedServerSignature, actualServerSignature);
+    }
+
+    /// <summary>
+    /// HMAC-SHA256
+    /// </summary>
+    private static byte[] Hmac(byte[] key, byte[] data)
+    {
+        using var hmac = new HMACSHA256(key);
+        return hmac.ComputeHash(data);
+    }
+
+    /// <summary>
+    /// PBKDF2-HMAC-SHA256 (Hi function из RFC 7677)
+    /// </summary>
+    private static byte[] Hi(string password, byte[] salt, int iterations)
+    {
+        var passwordBytes = Encoding.UTF8.GetBytes(password);
+        using var hmac = new HMACSHA256(passwordBytes);
+
+        // U1 = HMAC(password, salt || 0x01)
+        var saltPlusOne = new byte[salt.Length + 4];
+        Array.Copy(salt, saltPlusOne, salt.Length);
+        saltPlusOne[salt.Length] = 0;
+        saltPlusOne[salt.Length + 1] = 0;
+        saltPlusOne[salt.Length + 2] = 0;
+        saltPlusOne[salt.Length + 3] = 1;
+
+        var u = hmac.ComputeHash(saltPlusOne);
+        var result = (byte[])u.Clone();
+
+        // U2...Ui
+        for (int i = 1; i < iterations; i++)
+        {
+            u = hmac.ComputeHash(u);
+            for (int j = 0; j < 32; j++)
+            {
+                result[j] ^= u[j];
+            }
+        }
+
+        Console.WriteLine($"DEBUG: SaltedPassword (Hi): {Convert.ToBase64String(result)}");
+        return result;
+    }
+
+    /// <summary>
+    /// Сгенерировать случайный nonce для SCRAM (base64 без паддингов)
+    /// </summary>
+    private string GenerateNonce()
+    {
+        var bytes = new byte[18];
+        _rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=');
     }
 }

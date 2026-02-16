@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PgBouncer.Core.Protocol;
 
 namespace PgBouncer.Core.Pooling;
 
@@ -20,6 +21,9 @@ public sealed class BackendConnection : IServerConnection
     private volatile int _isBroken;
     private volatile IBackendHandler? _handler;
     private Task? _readLoopTask;
+
+    // Для SASL аутентификации
+    private ScramSha256Auth? _scramAuth;
 
     public Guid Id { get; }
     public string Database { get; }
@@ -63,7 +67,7 @@ public sealed class BackendConnection : IServerConnection
 
                 if (c == 'R')
                 {
-                    await HandleAuthAsync(message, password, cancellationToken);
+                    await HandleAuthAsync(message, password, Username, cancellationToken);
                 }
                 else if (c == 'E')
                 {
@@ -75,6 +79,7 @@ public sealed class BackendConnection : IServerConnection
                     _ = ReadLoopAsync();
                     return;
                 }
+                // Пропускаем ParameterStatus ('S'), BackendKeyData ('K'), NotificationResponse ('A')
             }
 
             _reader.AdvanceTo(buffer.Start, buffer.End);
@@ -109,40 +114,161 @@ public sealed class BackendConnection : IServerConnection
         return len + 1;
     }
 
-    private async Task HandleAuthAsync(ReadOnlySequence<byte> message, string password, CancellationToken ct)
+    private async Task HandleAuthAsync(
+        ReadOnlySequence<byte> message,
+        string password,
+        string username,
+        CancellationToken ct)
     {
         var data = message.ToArray();
         int authCode = BinaryPrimitives.ReadInt32BigEndian(data.AsSpan(5));
+        var authType = (AuthenticationType)authCode;
 
-        if (authCode == 0) return;
+        _logger?.LogDebug("Authentication request: {AuthType}", authType);
+        Console.WriteLine($"DEBUG: Authenticating user '{username}' with password length: {password?.Length ?? 0}");
 
-        if (authCode == 3) // CleartextPassword
+        switch (authType)
         {
-            WritePasswordMessage(password);
-            await Writer.FlushAsync(ct);
-        }
-        else if (authCode == 5) // MD5Password
-        {
-            throw new NotSupportedException("MD5 auth not implemented");
-        }
-        else
-        {
-            throw new NotSupportedException($"Auth code {authCode} not supported");
+            case AuthenticationType.Ok:
+                // Аутентификация успешна, продолжаем читать сообщения до ReadyForQuery
+                return;
+
+            case AuthenticationType.CleartextPassword:
+                var pwdMsg = PostgresAuth.CreatePasswordMessage(password);
+                Writer.Write(pwdMsg);
+                await Writer.FlushAsync(ct);
+                return;
+
+            case AuthenticationType.MD5Password:
+                // Извлекаем соль (4 байта начиная с позиции 9)
+                var salt = new byte[4];
+                Array.Copy(data, 9, salt, 0, 4);
+                var md5Password = PostgresAuth.GenerateMd5Password(username, password, salt);
+                var md5Msg = PostgresAuth.CreatePasswordMessage(md5Password);
+                Writer.Write(md5Msg);
+                await Writer.FlushAsync(ct);
+                return;
+
+            case AuthenticationType.SASL:
+                // Парсим поддерживаемые механизмы
+                var mechanisms = ParseSASLMechanisms(data);
+                _logger?.LogDebug("SASL mechanisms: {Mechanisms}", string.Join(", ", mechanisms));
+                Console.WriteLine($"DEBUG: Server SASL mechanisms: {string.Join(", ", mechanisms)}");
+
+                // PostgreSQL 17+ поддерживает SCRAM-SHA-256-PLUS.
+                // ВАЖНО: Мы НЕ используем SSL/TLS для backend-соединения, поэтому мы НЕ МОЖЕМ использовать PLUS.
+                // PLUS требует channel binding (tls-server-end-point).
+                // Мы должны явно выбрать SCRAM-SHA-256, даже если сервер предлагает PLUS.
+
+                string selectedMechanism;
+                if (mechanisms.Contains("SCRAM-SHA-256"))
+                {
+                    selectedMechanism = "SCRAM-SHA-256";
+                }
+                else if (mechanisms.Contains("SCRAM-SHA-256-PLUS"))
+                {
+                    // Сервер предлагает ТОЛЬКО PLUS, а мы без SSL.
+                    // Обычно сервер предлагает оба, но если нет - придется пытаться PLUS (скорее всего, не сработает без SSL)
+                    selectedMechanism = "SCRAM-SHA-256-PLUS";
+                    _logger?.LogWarning("Server offers only SCRAM-SHA-256-PLUS but we don't handle SSL channel binding yet.");
+                }
+                else
+                {
+                    throw new NotSupportedException($"Only SCRAM-SHA-256 is supported. Server offers: {string.Join(", ", mechanisms)}");
+                }
+
+                Console.WriteLine($"DEBUG: Selected mechanism: {selectedMechanism}");
+                _scramAuth = new ScramSha256Auth(password);
+                
+                // Если мы выбрали PLUS (что маловероятно без SSL), то надо сказать об этом ScramAuth
+                if (selectedMechanism == "SCRAM-SHA-256-PLUS")
+                {
+                    _scramAuth.SetPlusMode();
+                }
+
+                var clientFirst = _scramAuth.CreateClientFirstMessage(username);
+                Console.WriteLine($"DEBUG: ClientFirst: {clientFirst}");
+                var saslInitial = PostgresAuth.CreateSASLInitialResponse(selectedMechanism, clientFirst);
+                Writer.Write(saslInitial);
+                await Writer.FlushAsync(ct);
+                return;
+
+            case AuthenticationType.SASLContinue:
+                if (_scramAuth == null)
+                    throw new InvalidOperationException("SASLContinue without SASL request");
+
+                // Извлекаем данные из сообщения
+                var saslData = Encoding.UTF8.GetString(data, 9, data.Length - 9);
+                _logger?.LogDebug("SASLContinue: {Data}", saslData);
+                Console.WriteLine($"DEBUG: SASLContinue Data: {saslData}");
+
+                try 
+                {
+                    var clientFinal = _scramAuth.ProcessServerFirstAndCreateClientFinal(saslData, username);
+                    Console.WriteLine($"DEBUG: ClientFinal: {clientFinal}");
+                    var saslResponse = PostgresAuth.CreateSASLResponse(clientFinal);
+                    Writer.Write(saslResponse);
+                    await Writer.FlushAsync(ct);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"DEBUG: SCRAM Error: {ex}");
+                    throw;
+                }
+                return;
+
+            case AuthenticationType.SASLFinal:
+                if (_scramAuth == null)
+                    throw new InvalidOperationException("SASLFinal without SASL request");
+
+                // Извлекаем ServerSignature
+                var finalData = Encoding.UTF8.GetString(data, 9, data.Length - 9);
+                _logger?.LogDebug("SASLFinal: {Data}", finalData);
+
+                // Парсим v=server_signature
+                var signature = ParseServerSignature(finalData);
+                if (!_scramAuth.VerifyServerSignature(signature))
+                    throw new InvalidOperationException("Invalid server signature");
+
+                _logger?.LogInformation("SCRAM-SHA-256 authentication successful");
+                _scramAuth = null; // Очищаем для GC
+                return;
+
+            default:
+                throw new NotSupportedException($"Auth type {authType} ({authCode}) not supported");
         }
     }
 
-    private void WritePasswordMessage(string password)
+    private static List<string> ParseSASLMechanisms(byte[] data)
     {
-        var passBytes = Encoding.UTF8.GetBytes(password);
-        int len = 4 + passBytes.Length + 1;
+        var mechanisms = new List<string>();
+        int pos = 9; // Пропускаем тип (4) + длину (4) + authCode (4), начало данных
 
-        Span<byte> buf = stackalloc byte[1 + 4 + 256];
-        buf[0] = (byte)'p';
-        BinaryPrimitives.WriteInt32BigEndian(buf.Slice(1), len);
-        passBytes.CopyTo(buf.Slice(5));
-        buf[5 + passBytes.Length] = 0;
+        while (pos < data.Length)
+        {
+            int start = pos;
+            while (pos < data.Length && data[pos] != 0)
+                pos++;
 
-        Writer.Write(buf.Slice(0, 1 + len));
+            if (pos > start)
+            {
+                mechanisms.Add(Encoding.UTF8.GetString(data, start, pos - start));
+            }
+            pos++; // Пропускаем null terminator
+        }
+
+        return mechanisms;
+    }
+
+    private static string ParseServerSignature(string saslFinalData)
+    {
+        // Формат: r=nonce,p=proof,v=server_signature
+        foreach (var part in saslFinalData.Split(','))
+        {
+            if (part.StartsWith("v="))
+                return part[2..];
+        }
+        throw new InvalidOperationException("No server signature in SASLFinal");
     }
 
     public void AttachHandler(IBackendHandler handler)
@@ -229,10 +355,10 @@ public sealed class BackendConnection : IServerConnection
         var first5 = buffer.Slice(0, 5);
         Span<byte> header = stackalloc byte[5];
         first5.CopyTo(header);
-        
+
         msgType = header[0];
         int len = BinaryPrimitives.ReadInt32BigEndian(header.Slice(1));
-        
+
         if (len < 4 || len > 1024 * 1024)
             return false;
 
@@ -251,23 +377,20 @@ public sealed class BackendConnection : IServerConnection
         switch (typeChar)
         {
             case 'N': // NoticeResponse
-            case 'S': // ParameterStatus  
+            case 'S': // ParameterStatus
             case 'A': // NotificationResponse
             case 'Z': // ReadyForQuery
-            case '1': // ParseComplete (Extended Query Protocol)
-            case '2': // BindComplete (Extended Query Protocol)
-            case 'T': // RowDescription (Extended Query Protocol)
-            case 'D': // DataRow (Extended Query Protocol)
-            case 'C': // CommandComplete (Extended Query Protocol)
-                // Нормальный фоновый шум или хвосты Extended Query Protocol
+            case '1': // ParseComplete
+            case '2': // BindComplete
+            case 'T': // RowDescription
+            case 'D': // DataRow
+            case 'C': // CommandComplete
                 break;
             case 'E':
-                // Ошибка от базы (например, админ сделал pg_terminate_backend)
                 Console.WriteLine($"[Backend {_socket.Handle}] Broken while idle: received ErrorResponse (E)");
                 MarkAsBroken();
                 break;
             default:
-                // Сессия не дочитала данные от прошлого запроса - десинхронизация
                 Console.WriteLine($"[Backend {_socket.Handle}] Protocol desync! Received unexpected packet '{typeChar}' (0x{msgType:X2}) in Idle state.");
                 MarkAsBroken();
                 break;

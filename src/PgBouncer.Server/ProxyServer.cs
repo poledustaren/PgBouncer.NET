@@ -121,7 +121,7 @@ public class ProxyServer : IDisposable
             try
             {
                 await _poolManager.WarmupAsync(
-                    "postgres",
+                    _config.Backend.DefaultDatabase,
                     _config.Backend.AdminUser,
                     _config.Backend.AdminPassword,
                     _config.Pool.MinSize,
