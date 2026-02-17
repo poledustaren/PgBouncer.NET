@@ -45,8 +45,12 @@ class Program
         new("Notification Worker", 6, 15, 30, 100),     // 15-30 соединений
         new("Log Collector", 7, 5, 15, 1000),           // 5-15 соединений, очень долгие
         new("Report Generator", 8, 25, 50, 3000),       // 25-50 соединений, самые долгие
-        new("Session Manager", 9, 80, 150, 30)          // 80-150 соединений, самые быстрые
+        new("Session Manager", 9, 80, 150, 30),         // 80-150 соединений, самые быстрые
+        new("EF Core Transaction Test", 0, 10, 20, 100) // 10-20 соединений, тест транзакций
     };
+    
+    // Включить тестирование транзакций в общем стрессе
+    static bool EnableTransactionTesting = true;
 
     // Статистика
     static readonly ConcurrentDictionary<string, ProjectStats> Stats = new();
@@ -118,7 +122,16 @@ class Program
 
             for (int i = 0; i < targetConnections && !ct.IsCancellationRequested; i++)
             {
-                var connectionTask = RunConnectionAsync(project, stats, random, ct);
+                // Для транзакционного теста используем специальную логику
+                Task connectionTask;
+                if (project.Name.Contains("Transaction"))
+                {
+                    connectionTask = RunTransactionConnectionAsync(project, stats, random, ct);
+                }
+                else
+                {
+                    connectionTask = RunConnectionAsync(project, stats, random, ct);
+                }
                 connections.Add(connectionTask);
 
                 // Небольшая задержка между запуском соединений
@@ -134,6 +147,119 @@ class Program
             stats.Errors++;
             stats.LastError = ex.Message;
         }
+    }
+
+    /// <summary>
+    /// Выполняет транзакции в стиле EF Core (BEGIN -> запросы -> COMMIT)
+    /// </summary>
+    static async Task RunTransactionConnectionAsync(VirtualProject project, ProjectStats stats, Random random, CancellationToken ct)
+    {
+        var dbName = UseSingleDatabase ? SingleDatabaseName : Databases[project.DbIndex];
+        // Важно: отключаем внутренний пул Npgsql как на проде
+        var connStr = $"Host={ProxyHost};Port={ProxyPort};Database={dbName};Username={Username};Password={Password};Pooling=false;Command Timeout=120;Timeout=60";
+        
+        // Создаем таблицу при первом запуске
+        await EnsureTransactionTableExists(connStr, ct);
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                Interlocked.Increment(ref stats.ActiveConnections);
+
+                await using var conn = new NpgsqlConnection(connStr);
+                await conn.OpenAsync(ct);
+                stats.ConnectionsOpened++;
+
+                // Выполняем 5-10 транзакций на одном соединении
+                var txCount = random.Next(5, 11);
+                for (int t = 0; t < txCount && !ct.IsCancellationRequested; t++)
+                {
+                    await using var tx = await conn.BeginTransactionAsync(ct);
+                    
+                    try
+                    {
+                        // Имитируем работу EF Core: INSERT + UPDATE + SELECT
+                        var iteration = random.Next(1, 1000000);
+                        
+                        // INSERT
+                        await using (var cmd1 = new NpgsqlCommand(
+                            "INSERT INTO test_transactions (iteration, operation) VALUES (@i, 'insert')", conn, tx))
+                        {
+                            cmd1.Parameters.AddWithValue("i", iteration);
+                            await cmd1.ExecuteNonQueryAsync(ct);
+                        }
+
+                        // SELECT
+                        await using (var cmd2 = new NpgsqlCommand(
+                            "SELECT COUNT(*) FROM test_transactions WHERE iteration = @i", conn, tx))
+                        {
+                            cmd2.Parameters.AddWithValue("i", iteration);
+                            await cmd2.ExecuteScalarAsync(ct);
+                        }
+
+                        // UPDATE
+                        await using (var cmd3 = new NpgsqlCommand(
+                            "UPDATE test_transactions SET operation = 'updated' WHERE iteration = @i", conn, tx))
+                        {
+                            cmd3.Parameters.AddWithValue("i", iteration);
+                            await cmd3.ExecuteNonQueryAsync(ct);
+                        }
+
+                        // COMMIT
+                        await tx.CommitAsync(ct);
+                        
+                        Interlocked.Increment(ref TotalOperations);
+                        stats.QueriesExecuted += 3; // 3 операции в транзакции
+                    }
+                    catch
+                    {
+                        await tx.RollbackAsync(ct);
+                        throw;
+                    }
+
+                    // Пауза между транзакциями
+                    await Task.Delay(random.Next(50, 150), ct);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Interlocked.Increment(ref TotalErrors);
+                stats.Errors++;
+                stats.LastError = ex.Message[..Math.Min(50, ex.Message.Length)];
+                
+                // При ошибке ждем подольше
+                await Task.Delay(random.Next(1000, 3000), ct);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref stats.ActiveConnections);
+            }
+
+            // Пауза перед следующим соединением
+            await Task.Delay(random.Next(200, 800), ct);
+        }
+    }
+
+    /// <summary>
+    /// Создает таблицу для тестирования транзакций если не существует
+    /// </summary>
+    static async Task EnsureTransactionTableExists(string connStr, CancellationToken ct)
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(connStr);
+            await conn.OpenAsync(ct);
+            await using var cmd = new NpgsqlCommand(@"
+                CREATE TABLE IF NOT EXISTS test_transactions (
+                    id SERIAL PRIMARY KEY,
+                    iteration INTEGER NOT NULL,
+                    operation VARCHAR(50) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )", conn);
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        catch { /* Игнорируем ошибки создания таблицы */ }
     }
 
     static async Task RunConnectionAsync(VirtualProject project, ProjectStats stats, Random random, CancellationToken ct)
