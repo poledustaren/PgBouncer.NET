@@ -75,6 +75,13 @@ public abstract class PostgresMessage
             _ => new UnknownMessage(type, payload.ToArray())
         };
     }
+
+    protected static void WriteInt32(Stream stream, int value)
+    {
+        Span<byte> buffer = stackalloc byte[4];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
+        stream.Write(buffer);
+    }
 }
 
 /// <summary>
@@ -100,13 +107,6 @@ public class QueryMessage : PostgresMessage
     {
         var query = System.Text.Encoding.UTF8.GetString(payload[..^1]); // убираем null terminator
         return new QueryMessage { Query = query };
-    }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
     }
 }
 
@@ -183,13 +183,6 @@ public class TerminateMessage : PostgresMessage
         stream.WriteByte((byte)Type);
         WriteInt32(stream, 4); // только длина
     }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
-    }
 }
 
 /// <summary>
@@ -213,13 +206,6 @@ public class ReadyForQueryMessage : PostgresMessage
         {
             Status = (TransactionStatus)payload[0]
         };
-    }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
     }
 }
 
@@ -246,13 +232,6 @@ public class CommandCompleteMessage : PostgresMessage
     {
         var tag = System.Text.Encoding.UTF8.GetString(payload[..^1]);
         return new CommandCompleteMessage { CommandTag = tag };
-    }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
     }
 }
 
@@ -288,13 +267,6 @@ public class ErrorResponseMessage : PostgresMessage
         // TODO: полный парсинг полей
         return msg;
     }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
-    }
 }
 
 /// <summary>
@@ -318,12 +290,5 @@ public class UnknownMessage : PostgresMessage
         stream.WriteByte((byte)Type);
         WriteInt32(stream, 4 + _payload.Length);
         stream.Write(_payload);
-    }
-
-    private static void WriteInt32(Stream stream, int value)
-    {
-        Span<byte> buffer = stackalloc byte[4];
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(buffer, value);
-        stream.Write(buffer);
     }
 }
