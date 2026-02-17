@@ -26,12 +26,12 @@ class Program
 
     // Если баз нет - используй одну с разными схемами
     static bool UseSingleDatabase = true;
-    static string SingleDatabaseName = "pm_analytics";
+    static string SingleDatabaseName = "postgres";
 
     static readonly int ProxyPort = 6432;
     static readonly string ProxyHost = "localhost";
-    static readonly string Username = "analytics";
-    static readonly string Password = "analytics_password";
+    static readonly string Username = "postgres";
+    static readonly string Password = "123";
 
     // Настройки проектов
     static readonly VirtualProject[] Projects =
@@ -61,9 +61,16 @@ class Program
     static async Task Main(string[] args)
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
-        Console.Clear();
-        Console.CursorVisible = false;
-        //await RunTransactionTestAsync();
+        if (!Console.IsOutputRedirected)
+        {
+            try
+            {
+                Console.Clear();
+                Console.CursorVisible = false;
+            }
+            catch { /* Игнорируем ошибки консоли */ }
+        }
+        
         // Если передан аргумент --transaction-test - запускаем тест транзакций
         if (args.Contains("--transaction-test"))
         {
@@ -96,8 +103,17 @@ class Program
         // Запускаем отображение статистики
         var displayTask = DisplayStatsAsync(cts.Token);
 
-        Console.WriteLine("Нажми любую клавишу для остановки...\n");
-        Console.ReadKey(true);
+        // Запускаем на фиксированное время (30 секунд) если нет интерактивной консоли
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
+        {
+            Console.WriteLine("Запущен неинтерактивный режим, тест будет работать 30 секунд...\n");
+            await Task.Delay(TimeSpan.FromSeconds(30), cts.Token);
+        }
+        else
+        {
+            Console.WriteLine("Нажми любую клавишу для остановки...\n");
+            Console.ReadKey(true);
+        }
 
         cts.Cancel();
         await Task.WhenAll(tasks);
@@ -340,7 +356,6 @@ class Program
     static async Task DisplayStatsAsync(CancellationToken ct)
     {
         const int headerLines = 7;
-        const int tableHeaderLines = 3;
 
         while (!ct.IsCancellationRequested)
         {
@@ -348,7 +363,14 @@ class Program
             {
                 await Task.Delay(500, ct);
 
-                Console.SetCursorPosition(0, headerLines);
+                if (!Console.IsOutputRedirected)
+                {
+                    try
+                    {
+                        Console.SetCursorPosition(0, headerLines);
+                    }
+                    catch { /* Игнорируем ошибки позиционирования */ }
+                }
 
                 // Заголовок таблицы
                 Console.ForegroundColor = ConsoleColor.Cyan;
