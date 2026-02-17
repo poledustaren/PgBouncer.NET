@@ -86,7 +86,14 @@ public sealed class BackendConnection : IServerConnection
 
     private void WriteStartupMessage(string database, string user)
     {
-        Span<byte> buf = stackalloc byte[512];
+        int totalLen = 4 + 4
+            + Encoding.UTF8.GetByteCount("user") + 1
+            + Encoding.UTF8.GetByteCount(user) + 1
+            + Encoding.UTF8.GetByteCount("database") + 1
+            + Encoding.UTF8.GetByteCount(database) + 1
+            + 1;
+
+        var buf = Writer.GetSpan(totalLen);
         int pos = 4;
 
         BinaryPrimitives.WriteInt32BigEndian(buf.Slice(pos), 196608); // Protocol 3.0
@@ -99,7 +106,7 @@ public sealed class BackendConnection : IServerConnection
         buf[pos++] = 0;
 
         BinaryPrimitives.WriteInt32BigEndian(buf, pos);
-        Writer.Write(buf.Slice(0, pos));
+        Writer.Advance(pos);
     }
 
     private int WriteCString(Span<byte> buf, string value)
@@ -133,16 +140,17 @@ public sealed class BackendConnection : IServerConnection
 
     private void WritePasswordMessage(string password)
     {
-        var passBytes = Encoding.UTF8.GetBytes(password);
-        int len = 4 + passBytes.Length + 1;
+        int passByteCount = Encoding.UTF8.GetByteCount(password);
+        int messageLen = 4 + passByteCount + 1;
+        int totalLen = 1 + messageLen;
 
-        Span<byte> buf = stackalloc byte[1 + 4 + 256];
+        var buf = Writer.GetSpan(totalLen);
         buf[0] = (byte)'p';
-        BinaryPrimitives.WriteInt32BigEndian(buf.Slice(1), len);
-        passBytes.CopyTo(buf.Slice(5));
-        buf[5 + passBytes.Length] = 0;
+        BinaryPrimitives.WriteInt32BigEndian(buf.Slice(1), messageLen);
+        int written = Encoding.UTF8.GetBytes(password, buf.Slice(5));
+        buf[5 + written] = 0;
 
-        Writer.Write(buf.Slice(0, 1 + len));
+        Writer.Advance(totalLen);
     }
 
     public void AttachHandler(IBackendHandler handler)
