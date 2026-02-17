@@ -6,7 +6,7 @@ namespace PgBouncer.Core.Protocol;
 
 /// <summary>
 /// Обработка аутентификации PostgreSQL
-/// Поддерживает: CleartextPassword, MD5Password, SASL/SCRAM-SHA-256, SASL/SCRAM-SHA-256-PLUS
+/// Поддерживает: CleartextPassword, MD5Password, SASL/SCRAM-SHA-256
 /// </summary>
 public static class PostgresAuth
 {
@@ -43,7 +43,6 @@ public static class PostgresAuth
 
         BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(1), length);
         Array.Copy(passwordBytes, 0, message, 5, passwordBytes.Length);
-        // null terminator already 0
 
         return message;
     }
@@ -56,7 +55,6 @@ public static class PostgresAuth
         var mechanismBytes = Encoding.UTF8.GetBytes(mechanism);
         var responseBytes = Encoding.UTF8.GetBytes(clientFirstMessage);
 
-        // Формат: механизм + 0 + data_length (big-endian) + data
         var length = 4 + mechanismBytes.Length + 1 + 4 + responseBytes.Length;
 
         var message = new byte[1 + length];
@@ -95,9 +93,6 @@ public static class PostgresAuth
     }
 }
 
-/// <summary>
-/// Типы аутентификации PostgreSQL
-/// </summary>
 public enum AuthenticationType : int
 {
     Ok = 0,
@@ -115,7 +110,6 @@ public enum AuthenticationType : int
 
 /// <summary>
 /// SCRAM-SHA-256 клиент для PostgreSQL аутентификации
-/// Поддерживает SCRAM-SHA-256 (RFC 7677) и SCRAM-SHA-256-PLUS (RFC 8446, PostgreSQL 17+)
 /// </summary>
 public sealed class ScramSha256Auth
 {
@@ -123,36 +117,25 @@ public sealed class ScramSha256Auth
     private readonly RandomNumberGenerator _rng = RandomNumberGenerator.Create();
     private string _clientNonce = null!;
     private byte[] _saltedPassword = null!;
-    private string? _authMessage; // Сохраняем как строку для удобства
-    private bool _usePlus = false; // Использовать SCRAM-SHA-256-PLUS (PostgreSQL 17+)
+    private string? _authMessage; 
+    private bool _usePlus = false; 
 
     public ScramSha256Auth(string password)
     {
         _password = password ?? throw new ArgumentNullException(nameof(password));
     }
 
-    /// <summary>
-    /// Установить режим PLUS для PostgreSQL 17+
-    /// </summary>
     public void SetPlusMode() => _usePlus = true;
 
-    /// <summary>
-    /// Создать клиентское первое сообщение (client-first-message)
-    /// Формат: n,,n=user,r=nonce
-    /// </summary>
     public string CreateClientFirstMessage(string username)
     {
         _clientNonce = GenerateNonce();
         return $"n,,n={username},r={_clientNonce}";
     }
 
-    /// <summary>
-    /// Обработать серверное первое сообщение и создать клиентское последнее сообщение
-    /// Server-first: r=nonce+salt, i=iterations
-    /// </summary>
     public string ProcessServerFirstAndCreateClientFinal(string serverFirstMessage, string username)
     {
-        Console.WriteLine($"DEBUG: Processing server first message: {serverFirstMessage}");
+        // Парсим server-first-message
         var parts = serverFirstMessage.Split(',');
         string? combinedNonce = null;
         string? saltBase64 = null;
@@ -175,29 +158,26 @@ public sealed class ScramSha256Auth
             throw new InvalidOperationException("SCRAM nonce mismatch");
 
         var salt = Convert.FromBase64String(saltBase64);
-        var normalizedPassword = _password.Normalize(NormalizationForm.FormKC); // SASLprep-ish
+        var normalizedPassword = _password.Normalize(NormalizationForm.FormKC); 
 
         _saltedPassword = Hi(normalizedPassword, salt, iterations);
 
         // ClientKey = HMAC(SaltedPassword, "Client Key")
         var clientKey = Hmac(_saltedPassword, Encoding.UTF8.GetBytes("Client Key"));
-        Console.WriteLine($"DEBUG: ClientKey: {Convert.ToBase64String(clientKey)}");
 
         // StoredKey = H(ClientKey)
         var storedKey = SHA256.HashData(clientKey);
-        Console.WriteLine($"DEBUG: StoredKey: {Convert.ToBase64String(storedKey)}");
 
-        // AuthMessage
-        var cbFlag = _usePlus ? "p=padding" : "c=biws";
+        // Channel binding: используем стандартный 'c=biws' (base64 от "n,,")
+        // Если когда-нибудь добавим TLS, тут нужно будет подставлять tls-server-end-point
+        var cbFlag = "c=biws"; 
+        
         var clientFinalMessageWithoutProof = $"{cbFlag},r={combinedNonce}";
         var clientFirstMessage = $"n={username},r={_clientNonce}";
         _authMessage = $"{clientFirstMessage},{serverFirstMessage},{clientFinalMessageWithoutProof}";
-        
-        Console.WriteLine($"DEBUG: AuthMessage: {_authMessage}");
 
         // ClientSignature = HMAC(StoredKey, AuthMessage)
         var clientSignature = Hmac(storedKey, Encoding.UTF8.GetBytes(_authMessage));
-        Console.WriteLine($"DEBUG: ClientSignature: {Convert.ToBase64String(clientSignature)}");
 
         // ClientProof = ClientKey XOR ClientSignature
         var clientProof = new byte[clientKey.Length];
@@ -207,14 +187,9 @@ public sealed class ScramSha256Auth
         }
 
         var proofBase64 = Convert.ToBase64String(clientProof);
-        Console.WriteLine($"DEBUG: ClientProof: {proofBase64}");
-        
         return $"{clientFinalMessageWithoutProof},p={proofBase64}";
     }
 
-    /// <summary>
-    /// Проверить серверную подпись (ServerSignature)
-    /// </summary>
     public bool VerifyServerSignature(string serverSignatureBase64)
     {
         // ServerKey = HMAC(SaltedPassword, "Server Key")
@@ -227,9 +202,6 @@ public sealed class ScramSha256Auth
         return CryptographicOperations.FixedTimeEquals(expectedServerSignature, actualServerSignature);
     }
 
-    /// <summary>
-    /// HMAC-SHA256
-    /// </summary>
     private static byte[] Hmac(byte[] key, byte[] data)
     {
         using var hmac = new HMACSHA256(key);
@@ -237,41 +209,43 @@ public sealed class ScramSha256Auth
     }
 
     /// <summary>
-    /// PBKDF2-HMAC-SHA256 (Hi function из RFC 7677)
+    /// PBKDF2-HMAC-SHA256 (Correct implementation)
     /// </summary>
     private static byte[] Hi(string password, byte[] salt, int iterations)
     {
         var passwordBytes = Encoding.UTF8.GetBytes(password);
         using var hmac = new HMACSHA256(passwordBytes);
 
-        // U1 = HMAC(password, salt || 0x01)
-        var saltPlusOne = new byte[salt.Length + 4];
-        Array.Copy(salt, saltPlusOne, salt.Length);
-        saltPlusOne[salt.Length] = 0;
-        saltPlusOne[salt.Length + 1] = 0;
-        saltPlusOne[salt.Length + 2] = 0;
-        saltPlusOne[salt.Length + 3] = 1;
+        // Подготавливаем Salt || INT(1)
+        var saltWithInt1 = new byte[salt.Length + 4];
+        Array.Copy(salt, saltWithInt1, salt.Length);
+        saltWithInt1[salt.Length] = 0;
+        saltWithInt1[salt.Length + 1] = 0;
+        saltWithInt1[salt.Length + 2] = 0;
+        saltWithInt1[salt.Length + 3] = 1;
 
-        var u = hmac.ComputeHash(saltPlusOne);
-        var result = (byte[])u.Clone();
+        // Вычисляем U1
+        var u1 = hmac.ComputeHash(saltWithInt1);
+        
+        // Копируем U1 в result (SaltedPassword)
+        var result = new byte[u1.Length];
+        Array.Copy(u1, result, u1.Length);
+        
+        var currentU = u1;
 
-        // U2...Ui
+        // Вычисляем U2 ... Ui и делаем XOR
         for (int i = 1; i < iterations; i++)
         {
-            u = hmac.ComputeHash(u);
+            currentU = hmac.ComputeHash(currentU);
             for (int j = 0; j < 32; j++)
             {
-                result[j] ^= u[j];
+                result[j] ^= currentU[j];
             }
         }
 
-        Console.WriteLine($"DEBUG: SaltedPassword (Hi): {Convert.ToBase64String(result)}");
         return result;
     }
 
-    /// <summary>
-    /// Сгенерировать случайный nonce для SCRAM (base64 без паддингов)
-    /// </summary>
     private string GenerateNonce()
     {
         var bytes = new byte[18];

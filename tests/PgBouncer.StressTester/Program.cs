@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Npgsql;
+using System.Linq;
 
 namespace PgBouncer.StressTester;
 
@@ -25,12 +26,12 @@ class Program
 
     // Если баз нет - используй одну с разными схемами
     static bool UseSingleDatabase = true;
-    static string SingleDatabaseName = "postgres";
+    static string SingleDatabaseName = "pm_analytics";
 
     static readonly int ProxyPort = 6432;
     static readonly string ProxyHost = "localhost";
-    static readonly string Username = "postgres";
-    static readonly string Password = "123";
+    static readonly string Username = "analytics";
+    static readonly string Password = "analytics_password";
 
     // Настройки проектов
     static readonly VirtualProject[] Projects =
@@ -58,6 +59,13 @@ class Program
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.Clear();
         Console.CursorVisible = false;
+        //await RunTransactionTestAsync();
+        // Если передан аргумент --transaction-test - запускаем тест транзакций
+        if (args.Contains("--transaction-test"))
+        {
+            await RunTransactionTestAsync();
+            return;
+        }
 
         StartTime = DateTime.UtcNow;
 
@@ -67,6 +75,8 @@ class Program
         Console.WriteLine($"║  Прокси: {ProxyHost}:{ProxyPort}                                                         ║");
         Console.WriteLine($"║  Режим: {(UseSingleDatabase ? "Одна БД с виртуальными схемами" : "10 отдельных баз данных")}              ║");
         Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+        Console.WriteLine();
+        Console.WriteLine("Для запуска теста транзакций используйте: dotnet run -- --transaction-test");
         Console.WriteLine();
 
         // Инициализируем статистику
@@ -267,6 +277,38 @@ class Program
             catch { }
         }
     }
+
+    /// <summary>
+    /// Запускает тест транзакций для проверки фикса пулера
+    /// </summary>
+    static async Task RunTransactionTestAsync()
+    {
+        var dbName = UseSingleDatabase ? SingleDatabaseName : Databases[0];
+        var tester = new TransactionTester(ProxyHost, ProxyPort, Username, Password, dbName);
+
+        using var cts = new CancellationTokenSource();
+
+        Console.CancelKeyPress += (s, e) =>
+        {
+            e.Cancel = true;
+            cts.Cancel();
+        };
+
+        try
+        {
+            await tester.RunTestAsync(100, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("\n\n⚠️ Тест прерван пользователем");
+        }
+
+        // Возвращаем код ошибки если были ошибки
+        if (tester.ErrorCount > 0)
+        {
+            Environment.Exit(1);
+        }
+    }
 }
 
 record VirtualProject(string Name, int DbIndex, int MinConnections, int MaxConnections, int AvgQueryTimeMs);
@@ -279,4 +321,177 @@ class ProjectStats
     public long QueriesExecuted;
     public long Errors;
     public string? LastError;
+}
+
+/// <summary>
+/// Тестер для проверки корректности работы транзакций с пулером
+/// Имитирует поведение EF Core: BEGIN -> запросы -> COMMIT
+/// </summary>
+class TransactionTester
+{
+    private readonly string _proxyHost;
+    private readonly int _proxyPort;
+    private readonly string _username;
+    private readonly string _password;
+    private readonly string _database;
+
+    public long SuccessCount { get; private set; }
+    public long ErrorCount { get; private set; }
+    public List<string> Errors { get; } = new();
+
+    public TransactionTester(string proxyHost, int proxyPort, string username, string password, string database)
+    {
+        _proxyHost = proxyHost;
+        _proxyPort = proxyPort;
+        _username = username;
+        _password = password;
+        _database = database;
+    }
+
+    public async Task RunTestAsync(int iterations, CancellationToken ct)
+    {
+        // Connection string с отключенным внутренним пулом (как в проде)
+        var connStr = $"Host={_proxyHost};Port={_proxyPort};Database={_database};" +
+                      $"Username={_username};Password={_password};" +
+                      $"Pooling=false;Command Timeout=300;Timeout=60";
+
+        Console.WriteLine("╔════════════════════════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║                 🧪 Transaction Pooling Test - EF Core Style                  ║");
+        Console.WriteLine("╠════════════════════════════════════════════════════════════════════════════╣");
+        Console.WriteLine($"║  Target: {_proxyHost}:{_proxyPort,-16}                                  ║");
+        Console.WriteLine($"║  Database: {_database,-20}                            ║");
+        Console.WriteLine($"║  Iterations: {iterations,-10}                                          ║");
+        Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+        Console.WriteLine();
+        Console.WriteLine("Тест имитирует EF Core SaveChanges():");
+        Console.WriteLine("  1. Открытие соединения");
+        Console.WriteLine("  2. BEGIN (начало транзакции)");
+        Console.WriteLine("  3. Выполнение нескольких запросов");
+        Console.WriteLine("  4. COMMIT (фиксация транзакции)");
+        Console.WriteLine("  5. Закрытие соединения");
+        Console.WriteLine();
+
+        // Создаем таблицу если не существует
+        try
+        {
+            await using var setupConn = new NpgsqlConnection(connStr);
+            await setupConn.OpenAsync(ct);
+            await using var cmd = new NpgsqlCommand(@"
+                CREATE TABLE IF NOT EXISTS test_transactions (
+                    id SERIAL PRIMARY KEY,
+                    iteration INTEGER NOT NULL,
+                    operation VARCHAR(50) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )", setupConn);
+            await cmd.ExecuteNonQueryAsync(ct);
+            Console.WriteLine("✅ Таблица test_transactions создана/проверена");
+            Console.WriteLine();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"⚠️ Не удалось создать таблицу: {ex.Message}");
+            Console.WriteLine("   Продолжаем тест...");
+            Console.WriteLine();
+        }
+
+        for (int i = 1; i <= iterations && !ct.IsCancellationRequested; i++)
+        {
+            try
+            {
+                await RunSingleTransactionAsync(connStr, i, ct);
+                SuccessCount++;
+
+                if (i % 10 == 0)
+                {
+                    Console.WriteLine($"✅ Итерация {i}/{iterations} - OK (Success: {SuccessCount}, Errors: {ErrorCount})");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorCount++;
+                var errorMsg = $"❌ Итерация {i}: {ex.Message}";
+                Errors.Add(errorMsg);
+                Console.WriteLine(errorMsg);
+
+                if (Errors.Count >= 5)
+                {
+                    Console.WriteLine("\n⚠️ Слишком много ошибок, останавливаем тест");
+                    break;
+                }
+            }
+
+            // Небольшая задержка между итерациями
+            await Task.Delay(100, ct);
+        }
+
+        PrintResults();
+    }
+
+    private async Task RunSingleTransactionAsync(string connStr, int iteration, CancellationToken ct)
+    {
+        await using var conn = new NpgsqlConnection(connStr);
+        await conn.OpenAsync(ct);
+
+        // Начинаем транзакцию (как EF Core при SaveChanges())
+        await using var tx = await conn.BeginTransactionAsync(ct);
+
+        try
+        {
+            // Имитируем несколько операций внутри транзакции
+            // INSERT
+            await using (var cmd1 = new NpgsqlCommand(
+                "INSERT INTO test_transactions (iteration, operation) VALUES (@i, 'insert')", conn, tx))
+            {
+                cmd1.Parameters.AddWithValue("i", iteration);
+                await cmd1.ExecuteNonQueryAsync(ct);
+            }
+
+            // SELECT
+            await using (var cmd2 = new NpgsqlCommand(
+                "SELECT COUNT(*) FROM test_transactions WHERE iteration = @i", conn, tx))
+            {
+                cmd2.Parameters.AddWithValue("i", iteration);
+                var count = (long)(await cmd2.ExecuteScalarAsync(ct) ?? 0);
+                if (count != 1)
+                    throw new Exception($"Expected 1 row, got {count}");
+            }
+
+            // UPDATE
+            await using (var cmd3 = new NpgsqlCommand(
+                "UPDATE test_transactions SET operation = 'updated' WHERE iteration = @i", conn, tx))
+            {
+                cmd3.Parameters.AddWithValue("i", iteration);
+                await cmd3.ExecuteNonQueryAsync(ct);
+            }
+
+            // Фиксируем транзакцию
+            await tx.CommitAsync(ct);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+        // Соединение закроется автоматически (Dispose)
+    }
+
+    private void PrintResults()
+    {
+        Console.WriteLine("\n╔════════════════════════════════════════════════════════════════════════════╗");
+        Console.WriteLine("║                           📊 РЕЗУЛЬТАТЫ ТЕСТА                              ║");
+        Console.WriteLine("╠════════════════════════════════════════════════════════════════════════════╣");
+        Console.WriteLine($"║  Успешно:    {SuccessCount,10}                                                    ║");
+        Console.WriteLine($"║  Ошибок:     {ErrorCount,10}                                                    ║");
+        Console.WriteLine($"║  Результат:  {(ErrorCount == 0 ? "✅ PASS" : "❌ FAIL"),10}                                                    ║");
+        Console.WriteLine("╚════════════════════════════════════════════════════════════════════════════╝");
+
+        if (Errors.Any())
+        {
+            Console.WriteLine("\nПоследние ошибки:");
+            foreach (var error in Errors.Take(5))
+            {
+                Console.WriteLine($"  {error}");
+            }
+        }
+    }
 }

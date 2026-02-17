@@ -423,6 +423,11 @@ public sealed class ClientSession : IBackendHandler, IDisposable
 
             if (messageType == (byte)'Z')
             {
+                // Читаем 1 байт статуса транзакции из тела пакета
+                // ReadyForQuery payload: 1 байт статуса ('I', 'T', или 'E')
+                // Сообщение включает 5-байтный заголовок (тип + длина), статус на позиции 5
+                char txStatus = (char)GetByteAtPosition(message, 5);
+
                 int pending = Interlocked.Decrement(ref _pendingQueries);
                 
                 if (pending < 0)
@@ -431,7 +436,9 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                     pending = 0;
                 }
 
-                if (pending == 0)
+                // Отпускаем бэкенд ТОЛЬКО если в пайплайне пусто 
+                // И база не находится внутри транзакции (статус 'I' = Idle)
+                if (pending == 0 && txStatus == 'I')
                 {
                     ReleaseBackendIfIdle();
                 }
@@ -555,6 +562,30 @@ public sealed class ClientSession : IBackendHandler, IDisposable
             backendToRelease.DetachHandler();
             _pool?.Release(backendToRelease);
         }
+    }
+
+    /// <summary>
+    /// Получает байт из ReadOnlySequence по указанной позиции
+    /// </summary>
+    private static byte GetByteAtPosition(ReadOnlySequence<byte> sequence, long position)
+    {
+        if (sequence.IsSingleSegment)
+        {
+            return sequence.FirstSpan[(int)position];
+        }
+
+        // Для multi-segment последовательности ищем нужный сегмент
+        long currentPosition = 0;
+        foreach (var segment in sequence)
+        {
+            if (currentPosition + segment.Length > position)
+            {
+                return segment.Span[(int)(position - currentPosition)];
+            }
+            currentPosition += segment.Length;
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(position), "Position is beyond sequence length");
     }
 
     public void Dispose()

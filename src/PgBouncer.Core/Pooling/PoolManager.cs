@@ -101,7 +101,7 @@ public class PoolManager : IDisposable
     /// <summary>
     /// Получить пул для database/user (для Transaction Pooling)
     /// </summary>
-    public Task<IConnectionPool> GetPoolAsync(string database, string username, string password)
+    public virtual Task<IConnectionPool> GetPoolAsync(string database, string username, string password)
     {
         var poolKey = GetPoolKey(database, username);
         var pool = _pools.GetOrAdd(poolKey, _ => CreatePool(database, username, password));

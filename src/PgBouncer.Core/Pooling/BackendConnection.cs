@@ -153,7 +153,6 @@ public sealed class BackendConnection : IServerConnection
                 // Парсим поддерживаемые механизмы
                 var mechanisms = ParseSASLMechanisms(data);
                 _logger?.LogDebug("SASL mechanisms: {Mechanisms}", string.Join(", ", mechanisms));
-                Console.WriteLine($"DEBUG: Server SASL mechanisms: {string.Join(", ", mechanisms)}");
 
                 // PostgreSQL 17+ поддерживает SCRAM-SHA-256-PLUS.
                 // ВАЖНО: Мы НЕ используем SSL/TLS для backend-соединения, поэтому мы НЕ МОЖЕМ использовать PLUS.
@@ -177,7 +176,6 @@ public sealed class BackendConnection : IServerConnection
                     throw new NotSupportedException($"Only SCRAM-SHA-256 is supported. Server offers: {string.Join(", ", mechanisms)}");
                 }
 
-                Console.WriteLine($"DEBUG: Selected mechanism: {selectedMechanism}");
                 _scramAuth = new ScramSha256Auth(password);
                 
                 // Если мы выбрали PLUS (что маловероятно без SSL), то надо сказать об этом ScramAuth
@@ -187,7 +185,6 @@ public sealed class BackendConnection : IServerConnection
                 }
 
                 var clientFirst = _scramAuth.CreateClientFirstMessage(username);
-                Console.WriteLine($"DEBUG: ClientFirst: {clientFirst}");
                 var saslInitial = PostgresAuth.CreateSASLInitialResponse(selectedMechanism, clientFirst);
                 Writer.Write(saslInitial);
                 await Writer.FlushAsync(ct);
@@ -200,21 +197,11 @@ public sealed class BackendConnection : IServerConnection
                 // Извлекаем данные из сообщения
                 var saslData = Encoding.UTF8.GetString(data, 9, data.Length - 9);
                 _logger?.LogDebug("SASLContinue: {Data}", saslData);
-                Console.WriteLine($"DEBUG: SASLContinue Data: {saslData}");
 
-                try 
-                {
-                    var clientFinal = _scramAuth.ProcessServerFirstAndCreateClientFinal(saslData, username);
-                    Console.WriteLine($"DEBUG: ClientFinal: {clientFinal}");
-                    var saslResponse = PostgresAuth.CreateSASLResponse(clientFinal);
-                    Writer.Write(saslResponse);
-                    await Writer.FlushAsync(ct);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"DEBUG: SCRAM Error: {ex}");
-                    throw;
-                }
+                var clientFinal = _scramAuth.ProcessServerFirstAndCreateClientFinal(saslData, username);
+                var saslResponse = PostgresAuth.CreateSASLResponse(clientFinal);
+                Writer.Write(saslResponse);
+                await Writer.FlushAsync(ct);
                 return;
 
             case AuthenticationType.SASLFinal:
