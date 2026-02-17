@@ -280,6 +280,9 @@ public sealed class BackendConnection : IServerConnection
         UpdateActivity();
     }
 
+    // Хранит имена подготовленных запросов, существующих на этом бэкенде
+    public HashSet<string> PreparedStatements { get; } = new();
+
     public async Task ExecuteResetQueryAsync()
     {
         if (IsBroken) return;
@@ -309,6 +312,9 @@ public sealed class BackendConnection : IServerConnection
             using var reg = cts.Token.Register(() => tcs.TrySetCanceled());
 
             await tcs.Task;
+            
+            // Очищаем память бэкенда о prepared statements после сброса
+            PreparedStatements.Clear();
             
             _logger?.LogDebug("Executed reset query on connection {Id}", Id);
         }

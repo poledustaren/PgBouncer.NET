@@ -51,6 +51,12 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
 
     private bool _pendingBackendRelease;
     private readonly SemaphoreSlim _backendLock = new(1, 1);
+    
+    // Кэш подготовленных запросов для текущего клиента (Имя стейтмента -> Сырой пакет Parse)
+    private readonly Dictionary<string, byte[]> _clientPreparedStatements = new();
+    
+    // Счетчик пакетов ParseComplete, которые нужно перехватить и уничтожить
+    private int _skipParseCompleteCount;
 
     /// <summary>
     /// Creates a new PipelinesClientSession
@@ -492,12 +498,16 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
                         break;
 
                     case PgMessageTypes.Bind:
+                        await HandleBindAsync(message, cancellationToken);
+                        break;
+
                     case PgMessageTypes.Execute:
                     case PgMessageTypes.Describe:
                         pendingMessages.Add(message);
                         break;
 
                     case PgMessageTypes.Close:
+                        HandleCloseMessage(message);
                         pendingMessages.Add(message);
                         break;
 
@@ -573,6 +583,16 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
         return true;
     }
 
+    // Вспомогательный метод для чтения null-terminated строк из протокола Postgres
+    private static string GetNullTerminatedString(byte[] data, ref int offset)
+    {
+        int start = offset;
+        while (offset < data.Length && data[offset] != 0) offset++;
+        var result = System.Text.Encoding.UTF8.GetString(data, start, offset - start);
+        if (offset < data.Length) offset++; // пропускаем нулевой байт
+        return result;
+    }
+
     private async Task HandleSimpleQueryAsync(byte[] message, CancellationToken cancellationToken)
     {
         await EnsureBackendAsync(cancellationToken);
@@ -581,8 +601,55 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
 
     private async Task HandleParseAsync(byte[] message, CancellationToken cancellationToken)
     {
+        int offset = 5; // Пропускаем тип (1 байт) и длину (4 байта)
+        string stmtName = GetNullTerminatedString(message, ref offset);
+        
+        // Кэшируем оригинальное сообщение Parse для этого клиента
+        _clientPreparedStatements[stmtName] = message;
+
         await EnsureBackendAsync(cancellationToken);
+        
+        // Помечаем, что этот конкретный бэкенд теперь знает этот запрос
+        _backend!.PreparedStatements.Add(stmtName);
+
         await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
+    }
+
+    private async Task HandleBindAsync(byte[] message, CancellationToken cancellationToken)
+    {
+        int offset = 5;
+        string portalName = GetNullTerminatedString(message, ref offset);
+        string stmtName = GetNullTerminatedString(message, ref offset);
+
+        await EnsureBackendAsync(cancellationToken);
+
+        // ВАЖНО: Если бэкенд чистый (был сброшен), но клиент делал Prepare ранее
+        if (!_backend!.PreparedStatements.Contains(stmtName) && 
+            _clientPreparedStatements.TryGetValue(stmtName, out var parseMsg))
+        {
+            _logger.LogDebug("[Session {Id}] Re-preparing statement '{StmtName}' on backend {BackendId}", 
+                _sessionInfo.Id, stmtName, _backend.Id);
+            
+            // Незаметно для клиента инжектим сохраненный пакет Parse перед Bind!
+            // ВАЖНО: Увеличиваем счетчик. Мы ожидаем один ParseComplete, который нужно скрыть.
+            Interlocked.Increment(ref _skipParseCompleteCount);
+            
+            await _clientToBackendChannel.Writer.WriteAsync(parseMsg, cancellationToken);
+            _backend.PreparedStatements.Add(stmtName);
+        }
+        
+        await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
+    }
+
+    private void HandleCloseMessage(byte[] message)
+    {
+        // Если клиент явно послал команду закрыть Prepared Statement ('S')
+        if (message.Length > 6 && message[5] == (byte)'S')
+        {
+            int offset = 6;
+            string stmtName = GetNullTerminatedString(message, ref offset);
+            _clientPreparedStatements.Remove(stmtName);
+        }
     }
 
     private async Task HandleOtherMessageAsync(byte[] message, CancellationToken cancellationToken)
@@ -806,6 +873,18 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
     {
         var msgTypeChar = (char)messageType;
         _logger.LogDebug("[Session {Id}] <-: Type='{Type}'", _sessionInfo.Id, msgTypeChar);
+
+        // '1' = ParseComplete. Если мы сами послали Parse, то ответ нам не нужен.
+        if (messageType == (byte)'1')
+        {
+            // Проверяем, нужно ли пропустить этот пакет
+            if (Interlocked.CompareExchange(ref _skipParseCompleteCount, 0, 0) > 0)
+            {
+                Interlocked.Decrement(ref _skipParseCompleteCount);
+                _logger.LogDebug("[Session {Id}] Swallowed injected ParseComplete", _sessionInfo.Id);
+                return ValueTask.CompletedTask; // <-- Глушим пакет, клиент его не увидит
+            }
+        }
 
         // Forward to client via channel
         var data = new byte[message.Length];
