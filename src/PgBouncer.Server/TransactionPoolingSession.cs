@@ -225,7 +225,23 @@ public sealed class TransactionPoolingSession : IDisposable
             using var acquireCts = CancellationTokenSource.CreateLinkedTokenSource(token);
             acquireCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
-            var conn = await _pool.AcquireAsync(acquireCts.Token);
+            IServerConnection conn;
+            int retries = 0;
+            while (true)
+            {
+                try
+                {
+                    conn = await _pool.AcquireAsync(acquireCts.Token);
+                    break;
+                }
+                catch (Exception ex) when (ex.Message.Contains("PostgreSQL authentication failed") && retries < 3)
+                {
+                    retries++;
+                    _logger.LogWarning(ex, "[Session {Id}] Auth failure during acquire. Retrying ({Retry}/3)...", _sessionInfo.Id, retries);
+                    await Task.Delay(retries * 50, token);
+                }
+            }
+
             sw.Stop();
 
             _recordWaitTime(sw.ElapsedMilliseconds);

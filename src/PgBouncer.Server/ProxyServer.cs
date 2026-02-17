@@ -223,7 +223,7 @@ public class ProxyServer : IDisposable
             RemoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown"
         };
 
-        _sessions[sessionId] = sessionInfo;
+_sessions[sessionId] = sessionInfo;
         Interlocked.Increment(ref _activeSessions);
         Interlocked.Increment(ref _totalConnections);
 

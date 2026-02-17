@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.IO.Pipelines;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using PgBouncer.Core.Pooling;
@@ -101,6 +102,55 @@ public static class BackendResetHelper
         catch (OperationCanceledException)
         {
             logger?.LogDebug("Reset query cancelled for backend {BackendId}", connection.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Failed to send reset query to backend {BackendId}", connection.Id);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Send reset query via PipeWriter (for BackendConnection which uses Pipelines).
+    /// Waits for response to complete before returning.
+    /// </summary>
+    public static bool SendResetQueryViaPipelines(
+        BackendConnection connection,
+        string? resetQuery,
+        ILogger? logger)
+    {
+        if (string.IsNullOrEmpty(resetQuery))
+        {
+            return true;
+        }
+
+        var queryBytes = Encoding.UTF8.GetBytes(resetQuery);
+        
+        try
+        {
+            var message = new byte[1 + 4 + queryBytes.Length + 1];
+            var pos = 0;
+            
+            message[pos++] = (byte)'Q';
+            BinaryPrimitives.WriteInt32BigEndian(message.AsSpan(pos), 4 + queryBytes.Length + 1);
+            pos += 4;
+            queryBytes.CopyTo(message, pos);
+            pos += queryBytes.Length;
+            message[pos] = 0;
+
+            // Use PipeWriter instead of Stream
+            var span = connection.Writer.GetSpan(message.Length);
+            message.CopyTo(span);
+            connection.Writer.Advance(message.Length);
+            connection.Writer.FlushAsync().AsTask().Wait(TimeSpan.FromSeconds(2));
+
+            logger?.LogDebug("Sent reset query '{Query}' to backend {BackendId}", resetQuery, connection.Id);
+            
+            // Wait a bit for the response to be processed by ReadLoop
+            // The DISCARD ALL response should arrive quickly
+            Thread.Sleep(50);
+            
             return true;
         }
         catch (Exception ex)

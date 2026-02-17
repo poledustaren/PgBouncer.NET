@@ -32,7 +32,7 @@ public sealed class BackendConnection : IServerConnection
 
     Stream IServerConnection.Stream => throw new NotSupportedException("Use Writer for Pipelines I/O");
     public bool IsBroken => _isBroken == 1;
-    public bool IsHealthy => !IsBroken; // НЕ проверяем _socket.Connected - он не надежен
+    public bool IsHealthy => !IsBroken && _socket.Connected;
     public DateTime LastActivity => _lastActivity;
     public int Generation { get; set; }
 
@@ -278,6 +278,75 @@ public sealed class BackendConnection : IServerConnection
     {
         _handler = null;
         UpdateActivity();
+    }
+
+    public async Task ExecuteResetQueryAsync()
+    {
+        if (IsBroken) return;
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new ResetHandler(tcs);
+
+        try
+        {
+            AttachHandler(handler);
+
+            var query = "DISCARD ALL";
+            var queryBytes = Encoding.UTF8.GetBytes(query);
+            var len = 4 + queryBytes.Length + 1;
+
+            var mem = Writer.GetMemory(1 + len);
+
+            mem.Span[0] = (byte)'Q';
+            BinaryPrimitives.WriteInt32BigEndian(mem.Span.Slice(1), len);
+            queryBytes.CopyTo(mem.Span.Slice(5));
+            mem.Span[5 + queryBytes.Length] = 0;
+
+            Writer.Advance(1 + len);
+            await Writer.FlushAsync();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var reg = cts.Token.Register(() => tcs.TrySetCanceled());
+
+            await tcs.Task;
+            
+            _logger?.LogDebug("Executed reset query on connection {Id}", Id);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to execute reset query on connection {Id}", Id);
+            MarkAsBroken();
+            throw;
+        }
+        finally
+        {
+            DetachHandler();
+        }
+    }
+
+    private class ResetHandler : IBackendHandler
+    {
+        private readonly TaskCompletionSource _tcs;
+
+        public ResetHandler(TaskCompletionSource tcs) => _tcs = tcs;
+
+        public ValueTask HandleBackendMessageAsync(ReadOnlySequence<byte> message, byte messageType)
+        {
+            if (messageType == (byte)'Z')
+            {
+                _tcs.TrySetResult();
+            }
+            else if (messageType == (byte)'E')
+            {
+                _tcs.TrySetException(new Exception("Reset query failed (ErrorResponse received)"));
+            }
+            return ValueTask.CompletedTask;
+        }
+
+        public void OnBackendDisconnected(Exception? ex)
+        {
+            _tcs.TrySetException(ex ?? new Exception("Backend disconnected during reset"));
+        }
     }
 
     public void StartReaderLoop()

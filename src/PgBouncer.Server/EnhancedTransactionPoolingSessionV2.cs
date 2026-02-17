@@ -13,7 +13,11 @@ namespace PgBouncer.Server;
 public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHandler
 {
     private readonly Stream _clientStream;
-    private readonly IConnectionPool _pool;
+    private readonly PoolManager _poolManager;
+    private IConnectionPool? _pool;
+    private readonly string _database;
+    private readonly string _username;
+    private readonly string _password;
     private readonly PgBouncerConfig _config;
     private readonly ILogger _logger;
     private readonly SessionInfo _sessionInfo;
@@ -31,6 +35,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
     };
     
     private SessionState _state = SessionState.Idle;
+    private bool _usedExtendedQuery = false;
     private readonly List<byte[]> _pendingMessages = new();
     
     private IServerConnection? _backend;
@@ -50,7 +55,10 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
 
     public EnhancedTransactionPoolingSessionV2(
         Stream clientStream,
-        IConnectionPool pool,
+        PoolManager poolManager,
+        string database,
+        string username,
+        string password,
         PgBouncerConfig config,
         ILogger logger,
         SessionInfo sessionInfo,
@@ -61,7 +69,10 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         byte[]? initialData = null)
     {
         _clientStream = clientStream;
-        _pool = pool;
+        _poolManager = poolManager;
+        _database = database;
+        _username = username;
+        _password = password;
         _config = config;
         _logger = logger;
         _sessionInfo = sessionInfo;
@@ -94,6 +105,8 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
     public async Task RunAsync(CancellationToken cancellationToken)
     {
         _logger.LogDebug("[Session {Id}] Starting Transaction Pooling Session V2", _sessionInfo.Id);
+
+        _pool = await _poolManager.GetPoolAsync(_database, _username, _password);
 
         try
         {
@@ -146,12 +159,6 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
 
         var msgType = (char)packet[0];
         _logger.LogDebug("[Session {Id}] Backend->: Type='{Type}'", _sessionInfo.Id, msgType);
-
-        if (msgType == PgMessageTypes.ReadyForQuery)
-        {
-            var status = packet.Length > 5 ? packet[5] : (byte)'I';
-            _ = HandleReadyForQueryAsync(status);
-        }
 
         _backendToClientChannel.Writer.TryWrite((packet, generation));
         return ValueTask.CompletedTask;
@@ -311,6 +318,13 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
                 
                 await _clientStream.WriteAsync(message, cancellationToken);
                 await _clientStream.FlushAsync(cancellationToken);
+
+                // Если это ReadyForQuery - сигнализируем, что можно продолжать/освобождать
+                if (message[0] == (byte)'Z')
+                {
+                    var status = message.Length > 5 ? message[5] : (byte)'I';
+                    await HandleReadyForQueryAsync(status);
+                }
             }
         }
         catch (ChannelClosedException)
@@ -325,6 +339,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
 
     private async Task HandleParseAsync(byte[] message, CancellationToken cancellationToken)
     {
+        Console.WriteLine($"[DEBUG] Session {_sessionInfo.Id}: HandleParseAsync called. Setting _usedExtendedQuery = true");
         if (_pendingBackendRelease)
         {
             _logger.LogTrace("[Session {Id}] Reusing backend for next Extended Query batch", _sessionInfo.Id);
@@ -335,6 +350,7 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         _pendingMessages.Clear();
         _pendingMessages.Add(message);
         _state = SessionState.InExtendedQuery;
+        _usedExtendedQuery = true;
     }
 
     private void HandleBind(byte[] message)
@@ -375,6 +391,9 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         
         _logger.LogTrace("[Session {Id}] Sync: flushing {Count} messages", _sessionInfo.Id, _pendingMessages.Count);
 
+        // Очищаем канал перед отправкой, чтобы не поймать старый ReadyForQuery
+        while (_readyForQueryChannel.Reader.TryRead(out _)) { }
+
         foreach (var msg in _pendingMessages)
         {
             await _clientToBackendChannel.Writer.WriteAsync(msg, cancellationToken);
@@ -393,6 +412,12 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         }
         
         _state = SessionState.WaitingForNextMessage;
+
+        // БЛ*ТЬ, ТУТ ТОЖЕ НАДО ОСВОБОЖДАТЬ! Если транзакции нет - нахер нам бэкенд?
+        if (_pendingBackendRelease)
+        {
+            await ReleaseBackendAsync();
+        }
     }
 
     private async Task HandleFlushAsync(byte[] message, CancellationToken cancellationToken)
@@ -418,6 +443,10 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         }
         
         await EnsureBackendAsync(cancellationToken);
+
+        // Очищаем канал перед отправкой
+        while (_readyForQueryChannel.Reader.TryRead(out _)) { }
+
         await _clientToBackendChannel.Writer.WriteAsync(message, cancellationToken);
         
         try
@@ -432,6 +461,11 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         }
         
         _state = SessionState.WaitingForNextMessage;
+
+        if (_pendingBackendRelease)
+        {
+            await ReleaseBackendAsync();
+        }
     }
 
     private async Task HandleOtherMessageAsync(byte[] message, CancellationToken cancellationToken)
@@ -545,6 +579,26 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         {
             backend.DetachHandler();
             
+            Console.WriteLine($"[DEBUG] Session {_sessionInfo.Id}: Releasing backend. _usedExtendedQuery = {_usedExtendedQuery}");
+
+            // Если юзали Extended Query - бэкенд "грязный". 
+            // Помечаем его как failed, чтобы пул выкинул его и создал новый.
+            if (_usedExtendedQuery)
+            {
+                _logger.LogInformation("[Session {Id}] Backend {BackendId} is dirty (Extended Query used). Marking as failed to ensure isolation.", 
+                    _sessionInfo.Id, backend.Id);
+                
+                _pool.RecordFailure(backend.Id);
+                
+                try
+                {
+                    await backend.DisposeAsync();
+                }
+                catch { }
+                
+                _usedExtendedQuery = false;
+            }
+
             _logger.LogDebug("[Session {Id}] Releasing backend {BackendId} (gen {Gen})",
                 _sessionInfo.Id, backend.Id, generation);
             
@@ -611,6 +665,15 @@ public class EnhancedTransactionPoolingSessionV2 : IDisposable, IBackendPacketHa
         _clientToBackendChannel.Writer.TryComplete();
         _backendToClientChannel.Writer.TryComplete();
         _readyForQueryChannel.Writer.TryComplete();
+
+        // Ждем завершения тасок, чтобы не было ObjectDisposedException при записи в закрытый стрим
+        try
+        {
+            if (_clientReaderTask != null) await AwaitWithTimeout(_clientReaderTask, TimeSpan.FromSeconds(1));
+            if (_clientWriterTask != null) await AwaitWithTimeout(_clientWriterTask, TimeSpan.FromSeconds(1));
+            if (_backendWriterTask != null) await AwaitWithTimeout(_backendWriterTask, TimeSpan.FromSeconds(1));
+        }
+        catch { }
 
         await ReleaseBackendAsync();
 

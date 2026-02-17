@@ -45,6 +45,7 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
     private Task? _clientReaderTask;
     private Task? _clientWriterTask;
     private Task? _backendWriterTask;
+    private Task? _backendToClientTask;
 
     private readonly CancellationTokenSource _cts = new();
 
@@ -345,13 +346,14 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
             _backend = (BackendConnection)backend;
             _backend.AttachHandler(this);
 
-            // Start the loops
+// Start the loops
             _clientWriterTask = ClientWriterLoopAsync(cancellationToken);
             _backendWriterTask = BackendWriterLoopAsync(cancellationToken);
+            _backendToClientTask = BackendToClientForwarderLoopAsync(cancellationToken);
             _clientReaderTask = ClientReaderLoopAsync(initialData, cancellationToken);
 
             // Wait for any to complete
-            await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendWriterTask);
+            await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendWriterTask, _backendToClientTask);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -378,13 +380,14 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
         await SendAuthOkAndReadyAsync(cancellationToken);
         IsAuthenticated = true;
 
-        // Start the loops
+// Start the loops
         _clientWriterTask = ClientWriterLoopAsync(cancellationToken);
         _backendWriterTask = BackendWriterLoopAsync(cancellationToken);
+        _backendToClientTask = BackendToClientForwarderLoopAsync(cancellationToken);
         _clientReaderTask = TransactionPoolingReaderLoopAsync(initialData, cancellationToken);
 
         // Wait for any to complete
-        await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendWriterTask);
+        await Task.WhenAny(_clientReaderTask, _clientWriterTask, _backendWriterTask, _backendToClientTask);
     }
 
     /// <summary>
@@ -658,9 +661,39 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
         {
             _logger.LogDebug("[Session {Id}] Backend writer channel closed", _sessionInfo.Id);
         }
-        catch (Exception ex) when (!IsExpectedException(ex))
+catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Backend writer error", _sessionInfo.Id);
+        }
+    }
+
+    /// <summary>
+    /// Backend to client forwarder loop - reads from backend channel and writes to client pipe
+    /// </summary>
+    private async Task BackendToClientForwarderLoopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("[Session {Id}] Backend->Client forwarder loop started", _sessionInfo.Id);
+
+        try
+        {
+            await foreach (var message in _backendToClientChannel.Reader.ReadAllAsync(cancellationToken))
+            {
+                var writer = _clientWritePipe.Writer;
+                writer.Write(message);
+                await writer.FlushAsync(cancellationToken);
+            }
+        }
+        catch (ChannelClosedException)
+        {
+            _logger.LogDebug("[Session {Id}] Backend->Client channel closed", _sessionInfo.Id);
+        }
+        catch (Exception ex) when (!IsExpectedException(ex))
+        {
+            _logger.LogError(ex, "[Session {Id}] Backend->Client forwarder error", _sessionInfo.Id);
+        }
+        finally
+        {
+            _clientWritePipe.Writer.Complete();
         }
     }
 

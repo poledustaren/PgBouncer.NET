@@ -34,6 +34,11 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     private int _pendingQueries;
     private int _isAcquiring;
     private readonly object _backendLock = new();
+    
+    // Состояние для защиты от Extended Query Protocol race condition
+    private bool _isWritingToBackend = false;
+    private bool _isMidExtendedQuery = false;
+    private char _lastTxStatus = 'I'; // По умолчанию Idle
 
     public ClientSession(
         Socket clientSocket,
@@ -136,7 +141,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                 }
                 else
                 {
-                    _logger.LogWarning("[Session {Id}] Unknown protocol: {Code}", _sessionInfo.Id);
+                    _logger.LogWarning("[Session {Id}] Unknown protocol: {Code}", _sessionInfo.Id, protocolCode);
                     return false;
                 }
             }
@@ -268,11 +273,22 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                         return;
                     }
 
-                    bool isQueryOrSync = (typeChar == 'Q' || typeChar == 'S');
-                    
-                    if (isQueryOrSync)
+                    // Защита от Extended Query Protocol race condition
+                    lock (_backendLock)
                     {
-                        Interlocked.Increment(ref _pendingQueries);
+                        _isWritingToBackend = true;
+                        
+                        if (typeChar == 'Q' || typeChar == 'S')
+                        {
+                            Interlocked.Increment(ref _pendingQueries);
+                            _isMidExtendedQuery = false; // Блок завершен, ожидаем 'Z'
+                        }
+                        else if (typeChar is 'P' or 'B' or 'E' or 'D' or 'C')
+                        {
+                            // Сообщения типа Parse (P), Bind (B), Execute (E), Describe (D), Close (C)
+                            // Означают, что мы начали длинную команду, и разрывать соединение НЕЛЬЗЯ
+                            _isMidExtendedQuery = true; 
+                        }
                     }
 
                     bool messageSent = false;
@@ -302,13 +318,13 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                         catch (Exception ex) when (ex is IOException || ex is SocketException)
                         {
                             backend.MarkAsBroken();
-                            ReleaseBackend();
+                            ReleaseBackend(force: true);
 
                             if (currentRetry >= MaxRetries || Volatile.Read(ref _pendingQueries) > 1)
                             {
                                 _logger.LogWarning("[Session {Id}] Retry failed after {Retries} attempts: {Message}", 
                                     _sessionInfo.Id, currentRetry, ex.Message);
-                                if (isQueryOrSync) Interlocked.Decrement(ref _pendingQueries);
+                                if (typeChar == 'Q' || typeChar == 'S') Interlocked.Decrement(ref _pendingQueries);
                                 throw;
                             }
 
@@ -319,11 +335,18 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                         catch
                         {
                             backend.MarkAsBroken();
-                            ReleaseBackend();
-                            if (isQueryOrSync) Interlocked.Decrement(ref _pendingQueries);
+                            ReleaseBackend(force: true);
+                            if (typeChar == 'Q' || typeChar == 'S') Interlocked.Decrement(ref _pendingQueries);
                             throw;
                         }
                     }
+                    
+                    // После отправки пытаемся освободить backend
+                    lock (_backendLock)
+                    {
+                        _isWritingToBackend = false;
+                    }
+                    TryReleaseBackendIfIdle();
                 }
 
                 _clientReader.AdvanceTo(buffer.Start, buffer.End);
@@ -349,8 +372,24 @@ public sealed class ClientSession : IBackendHandler, IDisposable
 
         try
         {
-            var conn = await _pool!.AcquireAsync(cancellationToken);
-            var newBackend = (BackendConnection)conn;
+            IServerConnection? conn = null;
+            int retries = 0;
+            while (true)
+            {
+                try
+                {
+                    conn = await _pool!.AcquireAsync(cancellationToken);
+                    break;
+                }
+                catch (Exception ex) when (ex.Message.Contains("PostgreSQL authentication failed") && retries < 3)
+                {
+                    retries++;
+                    _logger.LogWarning(ex, "[Session {Id}] Auth failure during acquire. Retrying ({Retry}/3)...", _sessionInfo.Id, retries);
+                    await Task.Delay(retries * 50, cancellationToken);
+                }
+            }
+
+            var newBackend = (BackendConnection)conn!;
 
             lock (_backendLock)
             {
@@ -436,12 +475,13 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                     pending = 0;
                 }
 
-                // Отпускаем бэкенд ТОЛЬКО если в пайплайне пусто 
-                // И база не находится внутри транзакции (статус 'I' = Idle)
-                if (pending == 0 && txStatus == 'I')
+                // Сохраняем статус транзакции
+                lock (_backendLock)
                 {
-                    ReleaseBackendIfIdle();
+                    _lastTxStatus = txStatus;
                 }
+
+                TryReleaseBackendIfIdle();
             }
         }
         catch (Exception ex)
@@ -524,39 +564,86 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         catch { /* Игнорируем ошибки при жестком закрытии */ }
     }
 
-    private void ReleaseBackendIfIdle()
+    /// <summary>
+    /// Безопасная попытка отвязки бэкенда - проверяет 4 условия безопасности
+    /// </summary>
+    private void TryReleaseBackendIfIdle()
     {
         BackendConnection? backendToRelease = null;
 
         lock (_backendLock)
         {
-            if (Volatile.Read(ref _pendingQueries) > 0)
+            // 4 Всадника Апокалипсиса: проверяем, что соединение АБСОЛЮТНО чистое
+            if (_isWritingToBackend) 
+            {
+                _logger.LogTrace("[Session {Id}] Not releasing: writing to backend", _sessionInfo.Id);
                 return;
-
-            if (Volatile.Read(ref _isAcquiring) > 0)
+            }
+            if (_isMidExtendedQuery) 
+            {
+                _logger.LogTrace("[Session {Id}] Not releasing: mid extended query", _sessionInfo.Id);
                 return;
-
+            }
+            if (Volatile.Read(ref _pendingQueries) > 0) 
+            {
+                _logger.LogTrace("[Session {Id}] Not releasing: pending queries ({Count})", _sessionInfo.Id, _pendingQueries);
+                return;
+            }
+            if (_lastTxStatus != 'I') 
+            {
+                _logger.LogTrace("[Session {Id}] Not releasing: tx status is {Status}", _sessionInfo.Id, _lastTxStatus);
+                return;
+            }
+            if (Volatile.Read(ref _isAcquiring) > 0) 
+            {
+                _logger.LogTrace("[Session {Id}] Not releasing: acquiring backend", _sessionInfo.Id);
+                return;
+            }
+            
             backendToRelease = _currentBackend;
             _currentBackend = null;
         }
 
         if (backendToRelease != null)
         {
+            _logger.LogDebug("[Session {Id}] Releasing backend {BackendId}", _sessionInfo.Id, backendToRelease.Id);
             backendToRelease.DetachHandler();
+            
+            // Send reset query before releasing (DISCARD ALL to clean prepared statements)
+            if (_config.Pool.Mode == PoolingMode.Transaction)
+            {
+                try
+                {
+                    backendToRelease.ExecuteResetQueryAsync().Wait(TimeSpan.FromSeconds(2));
+                    _logger.LogDebug("[Session {Id}] Reset query executed on backend {BackendId}", 
+                        _sessionInfo.Id, backendToRelease.Id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Session {Id}] Reset query failed, marking backend as broken", _sessionInfo.Id);
+                    backendToRelease.MarkAsBroken();
+                }
+            }
+            
             _pool?.Release(backendToRelease);
         }
     }
 
-    private void ReleaseBackend()
+    /// <summary>
+    /// Принудительная отвязка бэкенда (например, при ошибках)
+    /// </summary>
+    private void ReleaseBackend(bool force = false)
     {
         BackendConnection? backendToRelease = null;
-
+        
         lock (_backendLock)
         {
             backendToRelease = _currentBackend;
             _currentBackend = null;
+            _isWritingToBackend = false;
+            _isMidExtendedQuery = false;
         }
-
+        
         if (backendToRelease != null)
         {
             backendToRelease.DetachHandler();

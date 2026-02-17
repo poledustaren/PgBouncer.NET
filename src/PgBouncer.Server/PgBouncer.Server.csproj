@@ -47,6 +47,9 @@
     <None Remove="bin4\**" />
     <None Remove="bin3\**" />
     <None Remove="bin2\**" />
+    <Compile Remove="StressTester\**" />
+    <None Remove="StressTester\**" />
+    <EmbeddedResource Remove="StressTester\**" />
   </ItemGroup>
 
 </Project>
