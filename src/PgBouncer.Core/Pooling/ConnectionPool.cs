@@ -6,12 +6,6 @@ using PgBouncer.Core.Configuration;
 
 namespace PgBouncer.Core.Pooling;
 
-/// <summary>
-/// Оптимизированный пул соединений на Channel<T>
-/// - FIFO ротация (равномерное использование соединений)
-/// - Zero-allocation ожидание
-/// - Bounded capacity
-/// </summary>
 public class ConnectionPool : IConnectionPool
 {
     private readonly string _database;
@@ -21,18 +15,14 @@ public class ConnectionPool : IConnectionPool
     private readonly PoolConfig _poolConfig;
     private readonly ILogger? _logger;
 
-    // Channel обеспечивает FIFO и async wait без SemaphoreSlim overhead
-    private readonly Channel<IServerConnection> _idleChannel;
-    private readonly ConcurrentDictionary<Guid, IServerConnection> _activeConnections = new();
-    private readonly Timer? _idleCleanupTimer;
-    // Ограничиваем количество одновременных попыток подключения (Handshakes)
-    // 50 слотов, чтобы быстрее прогреваться.
-    private readonly SemaphoreSlim _createLock = new(50, 50);
+    private readonly LinkedList<IServerConnection> _idleConnections = new();
+    private readonly object _lock = new();
+    private readonly SemaphoreSlim _poolSemaphore;
     
-    // Circuit breaker for handling failed connections
     private readonly CircuitBreaker _circuitBreaker;
+    private readonly Timer? _idleCleanupTimer;
 
-    private int _currentSize;
+    private int _totalConnections;
     private long _totalAcquired;
     private long _totalReleased;
     private bool _disposed;
@@ -51,21 +41,13 @@ public class ConnectionPool : IConnectionPool
         _backendConfig = backendConfig;
         _poolConfig = poolConfig;
         _logger = logger;
+
+        _poolSemaphore = new SemaphoreSlim(poolConfig.MaxSize, poolConfig.MaxSize);
+
         _circuitBreaker = new CircuitBreaker(
             failureThreshold: 3,
             resetTimeoutSeconds: 30);
 
-        // Создаём bounded channel с FIFO семантикой
-        var options = new BoundedChannelOptions(poolConfig.MaxSize)
-        {
-            FullMode = BoundedChannelFullMode.Wait,
-            SingleReader = false,
-            SingleWriter = false,
-            AllowSynchronousContinuations = false
-        };
-        _idleChannel = Channel.CreateBounded<IServerConnection>(options);
-
-        // Запускаем таймер для очистки idle соединений
         if (poolConfig.IdleTimeout > 0)
         {
             _idleCleanupTimer = new Timer(
@@ -76,9 +58,6 @@ public class ConnectionPool : IConnectionPool
         }
     }
 
-    /// <summary>
-    /// Асинхронная инициализация пула - создает минимальное количество соединений
-    /// </summary>
     public async Task InitializeAsync(int minConnections, CancellationToken cancellationToken = default)
     {
         _logger?.LogInformation("Initializing pool with {MinConnections} minimum connections...", minConnections);
@@ -87,275 +66,282 @@ public class ConnectionPool : IConnectionPool
         {
             try
             {
-                _logger?.LogInformation("Creating connection {Current}/{Total}...", i + 1, minConnections);
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(30));
+                await _poolSemaphore.WaitAsync(cancellationToken);
                 
-                var connection = await CreateConnectionAsync(cts.Token);
-                _logger?.LogInformation("Connection created successfully: {ConnectionId}", connection.Id);
+                var connection = await CreateConnectionAsync(cancellationToken);
                 
-                if (_idleChannel.Writer.TryWrite(connection))
+                lock (_lock)
                 {
-                    Interlocked.Increment(ref _currentSize);
-                    _logger?.LogInformation("Connection {ConnectionId} added to idle channel. Pool size: {Size}", connection.Id, _currentSize);
+                    _idleConnections.AddFirst(connection);
+                    _totalConnections++;
                 }
-                else
-                {
-                    _logger?.LogError("Failed to add connection to idle channel - channel is full!");
-                    await connection.DisposeAsync();
-                }
+
+                _poolSemaphore.Release();
+                _logger?.LogInformation("Connection {Id} initialized", connection.Id);
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Failed to create connection {Current}/{Total}: {Message}", i + 1, minConnections, ex.Message);
+                _logger?.LogError(ex, "Failed to create initial connection");
+                if (_poolSemaphore.CurrentCount < _poolConfig.MaxSize)
+                    _poolSemaphore.Release();
             }
         }
-        
-        _logger?.LogInformation("Pool initialized with {CurrentSize} connections", _currentSize);
     }
 
-    /// <summary>
-    /// Получить соединение из пула (zero-allocation при наличии idle)
-    /// </summary>
     public async Task<IServerConnection> AcquireAsync(CancellationToken cancellationToken = default)
     {
         Interlocked.Increment(ref _totalAcquired);
 
-        // 1. Пытаемся взять из idle (zero-alloc fast path)
-        while (_idleChannel.Reader.TryRead(out var connection))
+        bool acquired = await _poolSemaphore.WaitAsync(_poolConfig.ConnectionTimeout * 1000, cancellationToken);
+        if (!acquired)
         {
-            // Проверяем health первым делом
-            if (!connection.IsHealthy)
-            {
-                _logger?.LogWarning("Dead connection {ConnectionId} found in pool, disposing",
-                    connection.Id);
-                await connection.DisposeAsync();
-                Interlocked.Decrement(ref _currentSize);
-                continue;
-            }
-
-            // Check circuit breaker
-            if (!_circuitBreaker.IsAllowed(connection.Id))
-            {
-                _logger?.LogWarning("Circuit breaker open for connection {ConnectionId}, disposing",
-                    connection.Id);
-                await connection.DisposeAsync();
-                Interlocked.Decrement(ref _currentSize);
-                continue;
-            }
-
-            _activeConnections[connection.Id] = connection;
-            connection.UpdateActivity();
-            _logger?.LogDebug("Reusing connection {ConnectionId} for {Database}/{User}",
-                connection.Id, _database, _username);
-            return connection;
+            throw new TimeoutException($"Timed out waiting for connection from pool (limit {_poolConfig.MaxSize})");
         }
 
-        // 2. Пытаемся создать новое (если лимит не достигнут)
-        var currentSize = Interlocked.Increment(ref _currentSize);
-        if (currentSize <= _poolConfig.MaxSize)
-        {
-            try
-            {
-                // Ждём слот на создание (троттлинг)
-                await _createLock.WaitAsync(cancellationToken);
-                try
-                {
-                    var newConnection = await CreateConnectionAsync(cancellationToken);
-                    _activeConnections[newConnection.Id] = newConnection;
-                    _logger?.LogInformation("Создано соединение {ConnectionId} для {Database}/{User} (всего: {Total})",
-                        newConnection.Id, _database, _username, currentSize);
-                    return newConnection;
-                }
-                finally
-                {
-                    _createLock.Release();
-                }
-            }
-            catch
-            {
-                Interlocked.Decrement(ref _currentSize);
-                // Backoff to prevent storm. 200ms is enough if we fail fast.
-                await Task.Delay(200, cancellationToken);
-                throw;
-            }
-        }
-
-        // 3. Лимит достигнут - ждём освобождения с таймаутом
-        Interlocked.Decrement(ref _currentSize);
-        _logger?.LogDebug("Лимит пула достигнут ({Max}), ожидание...", _poolConfig.MaxSize);
-
-        // Увеличиваем таймаут ожидания соединения из пула (дефолт 60с)
-        var waitTimeout = _poolConfig.ConnectionTimeout > 0 ? _poolConfig.ConnectionTimeout : 60;
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(TimeSpan.FromSeconds(waitTimeout));
+        IServerConnection? connection = null;
+        bool createdNew = false;
 
         try
         {
-            var waitedConnection = await _idleChannel.Reader.ReadAsync(timeoutCts.Token);
-
-            if (!waitedConnection.IsHealthy)
+            lock (_lock)
             {
-                await waitedConnection.DisposeAsync();
-                // Рекурсивный вызов для получения нового соединения
-                return await AcquireAsync(cancellationToken);
+                if (_idleConnections.Count > 0)
+                {
+                    connection = _idleConnections.First!.Value;
+                    _idleConnections.RemoveFirst();
+                }
+                else
+                {
+                    if (_totalConnections < _poolConfig.MaxSize)
+                    {
+                        _totalConnections++;
+                        createdNew = true;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Pool consistency error");
+                    }
+                }
             }
 
-            _activeConnections[waitedConnection.Id] = waitedConnection;
-            waitedConnection.UpdateActivity();
-            return waitedConnection;
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // Наш таймаут сработал, а не внешний cancellation
-            _logger?.LogWarning("Таймаут ожидания соединения из пула ({Timeout}s)", waitTimeout);
-            throw new TimeoutException($"Не удалось получить соединение из пула за {waitTimeout} секунд");
-        }
-    }
-
-    /// <summary>
-    /// Вернуть соединение в пул (zero-allocation)
-    /// </summary>
-    public void Release(IServerConnection connection)
-    {
-        Interlocked.Increment(ref _totalReleased);
-
-        if (_activeConnections.TryRemove(connection.Id, out _))
-        {
-            if (connection.IsBroken || !connection.IsHealthy || _disposed)
+            if (createdNew)
             {
-                connection.DisposeAsync().AsTask().Wait();
-                Interlocked.Decrement(ref _currentSize);
-                _logger?.LogTrace("Соединение {ConnectionId} закрыто (нездоровое или disposed)", connection.Id);
-                return;
+                try
+                {
+                    connection = await CreateConnectionAsync(cancellationToken);
+                }
+                catch
+                {
+                    lock (_lock) { _totalConnections--; }
+                    throw;
+                }
             }
-            
-            connection.UpdateActivity();
-
-            if (_idleChannel.Writer.TryWrite(connection))
+            else if (connection != null)
             {
-                _logger?.LogTrace("Соединение {ConnectionId} возвращено в пул", connection.Id);
+                if (!connection.IsHealthy || !_circuitBreaker.IsAllowed(connection.Id))
+                {
+                    await connection.DisposeAsync();
+                    lock (_lock) { _totalConnections--; }
+
+                    try
+                    {
+                        lock (_lock) { _totalConnections++; }
+                        connection = await CreateConnectionAsync(cancellationToken);
+                    }
+                    catch
+                    {
+                         lock (_lock) { _totalConnections--; }
+                         throw;
+                    }
+                }
+                else
+                {
+                    connection.UpdateActivity();
+                }
             }
             else
             {
-                connection.DisposeAsync().AsTask().Wait();
-                Interlocked.Decrement(ref _currentSize);
-                _logger?.LogWarning("Канал полон, соединение {ConnectionId} закрыто", connection.Id);
+                 throw new InvalidOperationException("Failed to acquire connection (null)");
             }
+
+            return connection!;
         }
-    }
-
-    public void RecordSuccess(Guid connectionId)
-    {
-        _circuitBreaker.RecordSuccess(connectionId);
-        _logger?.LogTrace("Connection {ConnectionId} recorded as successful", connectionId);
-    }
-
-    public void RecordFailure(Guid connectionId)
-    {
-        _circuitBreaker.RecordFailure(connectionId);
-        _logger?.LogWarning("Connection {ConnectionId} recorded as failed", connectionId);
-    }
-
-    /// <summary>
-    /// Создать новое соединение к PostgreSQL
-    /// </summary>
-    private async Task<IServerConnection> CreateConnectionAsync(CancellationToken cancellationToken)
-    {
-        _logger?.LogInformation("[CreateConnection] Starting connection to {Host}:{Port} for database {Database}, user {User}",
-            _backendConfig.Host, _backendConfig.Port, _database, _username);
-
-        try
+        catch
         {
-            var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
-            {
-                NoDelay = true,
-                SendBufferSize = 64 * 1024,
-                ReceiveBufferSize = 64 * 1024
-            };
-
-            await socket.ConnectAsync(_backendConfig.Host, _backendConfig.Port, cancellationToken);
-
-            _logger?.LogDebug("[CreateConnection] Socket connected, creating BackendConnection...");
-
-            var connection = new BackendConnection(socket, _database, _username, _logger);
-            await connection.ConnectAndAuthenticateAsync(_password, cancellationToken);
-
-            _logger?.LogInformation("[CreateConnection] SUCCESS: Connection {Id} created and authenticated", connection.Id);
-
-            return connection;
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, "[CreateConnection] FAILED: Error connecting to {Host}:{Port} - {Message}",
-                _backendConfig.Host, _backendConfig.Port, ex.Message);
+            _poolSemaphore.Release();
             throw;
         }
     }
 
-    /// <summary>
-    /// Очистка idle соединений (вызывается таймером)
-    /// </summary>
+    public void Release(IServerConnection connection)
+    {
+        _ = ReleaseAsyncInternal(connection);
+    }
+
+    public ValueTask ReleaseAsync(IServerConnection connection)
+    {
+        return new ValueTask(ReleaseAsyncInternal(connection));
+    }
+
+    private async Task ReleaseAsyncInternal(IServerConnection connection)
+    {
+        Interlocked.Increment(ref _totalReleased);
+
+        try
+        {
+            if (connection.IsBroken || !connection.IsHealthy || _disposed)
+            {
+                await DestroyConnectionAsync(connection);
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_poolConfig.ServerResetQuery))
+            {
+                try
+                {
+                    await connection.ExecuteResetQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning("Failed to reset connection {Id}: {Message}", connection.Id, ex.Message);
+                    await DestroyConnectionAsync(connection);
+                    return;
+                }
+            }
+
+            connection.UpdateActivity();
+
+            lock (_lock)
+            {
+                if (_totalConnections > _poolConfig.MaxSize)
+                {
+                     // Pool overflow
+                }
+                else
+                {
+                    _idleConnections.AddFirst(connection);
+                    _poolSemaphore.Release();
+                    return;
+                }
+            }
+
+            await DestroyConnectionAsync(connection);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error releasing connection {Id}", connection.Id);
+        }
+    }
+
+    private async Task DestroyConnectionAsync(IServerConnection connection)
+    {
+        lock (_lock)
+        {
+            _totalConnections--;
+        }
+
+        await connection.DisposeAsync();
+        _poolSemaphore.Release();
+    }
+
+    private async Task<IServerConnection> CreateConnectionAsync(CancellationToken cancellationToken)
+    {
+        var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+        {
+            NoDelay = true,
+            SendBufferSize = 64 * 1024,
+            ReceiveBufferSize = 64 * 1024
+        };
+
+        try
+        {
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(_poolConfig.ConnectionTimeout));
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+            await socket.ConnectAsync(_backendConfig.Host, _backendConfig.Port, linkedCts.Token);
+
+            var connection = new BackendConnection(socket, _database, _username, _logger);
+            await connection.ConnectAndAuthenticateAsync(_password, linkedCts.Token);
+
+            return connection;
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+
     private void CleanupIdleConnections(object? state)
     {
         if (_disposed) return;
 
         var idleTimeout = _poolConfig.IdleTimeout;
-        var toKeep = new List<IServerConnection>();
-        var removedCount = 0;
+        if (idleTimeout <= 0) return;
 
-        // Вычитываем все из канала
-        while (_idleChannel.Reader.TryRead(out var conn))
+        var toRemove = new List<IServerConnection>();
+
+        lock (_lock)
         {
-            if (conn.IsIdle(idleTimeout) || !conn.IsHealthy)
+            var node = _idleConnections.Last;
+            while (node != null)
             {
-                conn.DisposeAsync().AsTask().Wait();
-                Interlocked.Decrement(ref _currentSize);
-                removedCount++;
-                _logger?.LogInformation("Закрыто idle соединение {Id} для {Database}/{User}",
-                    conn.Id, _database, _username);
-            }
-            else
-            {
-                toKeep.Add(conn);
+                var conn = node.Value;
+                var prev = node.Previous;
+
+                if (conn.IsIdle(idleTimeout))
+                {
+                    if (_poolSemaphore.Wait(0))
+                    {
+                        _idleConnections.Remove(node);
+                        toRemove.Add(conn);
+                    }
+                }
+                else
+                {
+                    break;
+                }
+
+                node = prev;
             }
         }
 
-        // Возвращаем живые обратно в канал
-        foreach (var conn in toKeep)
+        if (toRemove.Count > 0)
         {
-            _idleChannel.Writer.TryWrite(conn);
-        }
+            _logger?.LogInformation("Closing {Count} idle connections", toRemove.Count);
 
-        if (removedCount > 0)
-        {
-            _logger?.LogDebug("Очищено {Count} idle соединений, осталось: {Total}",
-                removedCount, _currentSize);
+            _ = Task.Run(async () =>
+            {
+                foreach (var conn in toRemove)
+                {
+                    await DestroyConnectionAsync(conn);
+                }
+            });
         }
     }
 
-    /// <summary>
-    /// Статистика пула
-    /// </summary>
-    public PoolStats GetStats()
-    {
-        // Channel.Reader.Count даёт количество элементов в канале
-        var idleCount = _idleChannel.Reader.Count;
-
-        return new PoolStats
-        {
-            Database = _database,
-            Username = _username,
-            TotalConnections = _currentSize,
-            ActiveConnections = _activeConnections.Count,
-            IdleConnections = idleCount,
-            MaxConnections = _poolConfig.MaxSize
-        };
-    }
+    public void RecordSuccess(Guid connectionId) => _circuitBreaker.RecordSuccess(connectionId);
+    public void RecordFailure(Guid connectionId) => _circuitBreaker.RecordFailure(connectionId);
 
     public void Dispose()
     {
         DisposeAsync().AsTask().Wait();
+    }
+
+    public PoolStats GetStats()
+    {
+        lock (_lock)
+        {
+             return new PoolStats
+             {
+                 Database = _database,
+                 Username = _username,
+                 TotalConnections = _totalConnections,
+                 ActiveConnections = _totalConnections - _idleConnections.Count,
+                 IdleConnections = _idleConnections.Count,
+                 MaxConnections = _poolConfig.MaxSize
+             };
+        }
     }
 
     public async ValueTask DisposeAsync()
@@ -365,63 +351,18 @@ public class ConnectionPool : IConnectionPool
 
         _idleCleanupTimer?.Dispose();
         
-        // Запрещаем добавление новых соединений в канал
-        _idleChannel.Writer.Complete();
-        
-        // Пачка тасков для параллельного закрытия
-        var closeTasks = new List<Task>();
-
-        // Закрываем все активные соединения
-        foreach (var conn in _activeConnections.Values)
+        var toDispose = new List<IServerConnection>();
+        lock (_lock)
         {
-            closeTasks.Add(CloseBackendGracefullyAsync(conn));
+            toDispose.AddRange(_idleConnections);
+            _idleConnections.Clear();
         }
 
-        // Вычитываем все свободные соединения из пула
-        while (_idleChannel.Reader.TryRead(out var backend))
+        foreach (var conn in toDispose)
         {
-            closeTasks.Add(CloseBackendGracefullyAsync(backend));
+            await conn.DisposeAsync();
         }
 
-        // Ждем, пока все отправят пакет Terminate
-        await Task.WhenAll(closeTasks);
-
-        _createLock.Dispose();
+        _poolSemaphore.Dispose();
     }
-
-    private async Task CloseBackendGracefullyAsync(IServerConnection backend)
-    {
-        try
-        {
-            if (backend.IsHealthy)
-            {
-                // Отправляем пакет Terminate ('X') серверу PostgreSQL
-                // Формат: Type 'X' (1 байт) + Length (4 байта, значение = 4)
-                byte[] terminateMsg = { (byte)'X', 0, 0, 0, 4 };
-                await backend.Stream.WriteAsync(terminateMsg);
-                await backend.Stream.FlushAsync();
-            }
-        }
-        catch 
-        { 
-            // Игнорируем ошибки сети при выключении 
-        }
-        finally
-        {
-            await backend.DisposeAsync();
-        }
-    }
-}
-
-/// <summary>
-/// Статистика пула
-/// </summary>
-public class PoolStats
-{
-    public string Database { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-    public int TotalConnections { get; set; }
-    public int ActiveConnections { get; set; }
-    public int IdleConnections { get; set; }
-    public int MaxConnections { get; set; }
 }
