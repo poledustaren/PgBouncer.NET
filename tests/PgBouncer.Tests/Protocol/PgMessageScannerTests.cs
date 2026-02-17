@@ -38,6 +38,8 @@ public class PgMessageScannerTests
         // Assert
         result.Should().BeTrue();
         info.Type.Should().Be(PgMessageTypes.ReadyForQuery);
+        info.Length.Should().Be(message.Length - 1);
+        info.TotalLength.Should().Be(message.Length);
         info.PgTransactionState.Should().Be(expectedState);
         info.IsReadyForQuery.Should().BeTrue();
         if (expectedState == PgTransactionState.Idle)
