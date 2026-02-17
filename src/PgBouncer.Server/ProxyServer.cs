@@ -227,7 +227,7 @@ _sessions[sessionId] = sessionInfo;
         Interlocked.Increment(ref _activeSessions);
         Interlocked.Increment(ref _totalConnections);
 
-        using var session = new ClientSession(
+        using var session = new PipelinesClientSession(
             clientSocket,
             _config,
             _poolManager,
@@ -240,7 +240,7 @@ _sessions[sessionId] = sessionInfo;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Ошибка в клиентской сессии");
+            _logger.LogError(ex, "Ошибка в клиентской сессии Pipelines");
             sessionInfo.State = SessionState.Error;
         }
         finally

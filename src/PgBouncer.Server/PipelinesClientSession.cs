@@ -50,6 +50,7 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
     private readonly CancellationTokenSource _cts = new();
 
     private bool _pendingBackendRelease;
+    private readonly SemaphoreSlim _backendLock = new(1, 1);
 
     /// <summary>
     /// Creates a new PipelinesClientSession
@@ -607,32 +608,67 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
     {
         if (_backend != null) return;
 
-        var timeout = TimeSpan.FromSeconds(_config.Pool.ConnectionTimeout);
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(timeout);
-
-        Interlocked.Increment(ref _waitingForBackend);
+        await _backendLock.WaitAsync(cancellationToken);
         try
         {
-            var backend = await _pool!.AcquireAsync(timeoutCts.Token);
-            _backend = (BackendConnection)backend;
-            _backend.AttachHandler(this);
-            _logger.LogDebug("[Session {Id}] Backend acquired: {BackendId}", _sessionInfo.Id, _backend.Id);
+            if (_backend != null) return;
+
+            var timeout = TimeSpan.FromSeconds(_config.Pool.ConnectionTimeout);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+
+            Interlocked.Increment(ref _waitingForBackend);
+            try
+            {
+                var backend = await _pool!.AcquireAsync(timeoutCts.Token);
+                _backend = (BackendConnection)backend;
+                _backend.AttachHandler(this);
+                _logger.LogDebug("[Session {Id}] Backend acquired: {BackendId}", _sessionInfo.Id, _backend.Id);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _waitingForBackend);
+            }
         }
         finally
         {
-            Interlocked.Decrement(ref _waitingForBackend);
+            _backendLock.Release();
         }
     }
 
     private async Task ReleaseBackendAsync()
     {
-        if (_backend == null) return;
+        await _backendLock.WaitAsync();
+        try
+        {
+            if (_backend == null) return;
 
-        _backend.DetachHandler();
-        _pool!.Release(_backend);
-        _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", _sessionInfo.Id, _backend.Id);
-        _backend = null;
+            var backendToRelease = _backend;
+            _backend = null;
+
+            backendToRelease.DetachHandler();
+            
+            if (backendToRelease.IsHealthy)
+            {
+                try
+                {
+                    // Посылаем сброс монопольно, никто больше не пишет в этот поток
+                    await backendToRelease.ExecuteResetQueryAsync();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[Session {Id}] Failed to reset backend {BackendId}", _sessionInfo.Id, backendToRelease.Id);
+                    backendToRelease.MarkAsBroken();
+                }
+            }
+
+            _pool!.Release(backendToRelease);
+            _logger.LogDebug("[Session {Id}] Backend released: {BackendId}", _sessionInfo.Id, backendToRelease.Id);
+        }
+        finally
+        {
+            _backendLock.Release();
+        }
     }
 
     /// <summary>
@@ -646,22 +682,46 @@ public sealed class PipelinesClientSession : IBackendHandler, IDisposable
         {
             await foreach (var message in _clientToBackendChannel.Reader.ReadAllAsync(cancellationToken))
             {
-                if (_backend == null)
+                await _backendLock.WaitAsync(cancellationToken);
+                try
                 {
-                    _logger.LogWarning("[Session {Id}] No backend for writing", _sessionInfo.Id);
-                    continue;
-                }
+                    // Если бэкенда нет (отцепили предыдущий), запрашиваем новый
+                    if (_backend == null)
+                    {
+                        var timeout = TimeSpan.FromSeconds(_config.Pool.ConnectionTimeout);
+                        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                        timeoutCts.CancelAfter(timeout);
 
-                var writer = _backend.Writer;
-                writer.Write(message);
-                await writer.FlushAsync(cancellationToken);
+                        Interlocked.Increment(ref _waitingForBackend);
+                        try
+                        {
+                            var backend = await _pool!.AcquireAsync(timeoutCts.Token);
+                            _backend = (BackendConnection)backend;
+                            _backend.AttachHandler(this);
+                            _logger.LogDebug("[Session {Id}] Backend acquired (writer): {BackendId}", _sessionInfo.Id, _backend.Id);
+                        }
+                        finally
+                        {
+                            Interlocked.Decrement(ref _waitingForBackend);
+                        }
+                    }
+
+                    // Пишем безопасно, так как ReleaseBackendAsync не сможет вклиниться
+                    var writer = _backend.Writer;
+                    writer.Write(message);
+                    await writer.FlushAsync(cancellationToken);
+                }
+                finally
+                {
+                    _backendLock.Release();
+                }
             }
         }
         catch (ChannelClosedException)
         {
             _logger.LogDebug("[Session {Id}] Backend writer channel closed", _sessionInfo.Id);
         }
-catch (Exception ex) when (!IsExpectedException(ex))
+        catch (Exception ex) when (!IsExpectedException(ex))
         {
             _logger.LogError(ex, "[Session {Id}] Backend writer error", _sessionInfo.Id);
         }
@@ -942,6 +1002,7 @@ catch (Exception ex) when (!IsExpectedException(ex))
         if (_disposed) return;
         CleanupAsync().GetAwaiter().GetResult();
         _cts.Dispose();
+        _backendLock.Dispose();
     }
 
     private sealed class PrefixedStream : Stream

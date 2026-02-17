@@ -475,10 +475,11 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                     pending = 0;
                 }
 
-                // Сохраняем статус транзакции
+                // Сохраняем статус транзакции и сбрасываем флаг extended query
                 lock (_backendLock)
                 {
                     _lastTxStatus = txStatus;
+                    _isMidExtendedQuery = false; // Extended query блок завершен
                 }
 
                 TryReleaseBackendIfIdle();
@@ -576,27 +577,27 @@ public sealed class ClientSession : IBackendHandler, IDisposable
             // 4 Всадника Апокалипсиса: проверяем, что соединение АБСОЛЮТНО чистое
             if (_isWritingToBackend) 
             {
-                _logger.LogTrace("[Session {Id}] Not releasing: writing to backend", _sessionInfo.Id);
+                _logger.LogDebug("[Session {Id}] Not releasing: writing to backend", _sessionInfo.Id);
                 return;
             }
             if (_isMidExtendedQuery) 
             {
-                _logger.LogTrace("[Session {Id}] Not releasing: mid extended query", _sessionInfo.Id);
+                _logger.LogDebug("[Session {Id}] Not releasing: mid extended query", _sessionInfo.Id);
                 return;
             }
             if (Volatile.Read(ref _pendingQueries) > 0) 
             {
-                _logger.LogTrace("[Session {Id}] Not releasing: pending queries ({Count})", _sessionInfo.Id, _pendingQueries);
+                _logger.LogDebug("[Session {Id}] Not releasing: pending queries ({Count})", _sessionInfo.Id, _pendingQueries);
                 return;
             }
             if (_lastTxStatus != 'I') 
             {
-                _logger.LogTrace("[Session {Id}] Not releasing: tx status is {Status}", _sessionInfo.Id, _lastTxStatus);
+                _logger.LogDebug("[Session {Id}] Not releasing: tx status is {Status}", _sessionInfo.Id, _lastTxStatus);
                 return;
             }
             if (Volatile.Read(ref _isAcquiring) > 0) 
             {
-                _logger.LogTrace("[Session {Id}] Not releasing: acquiring backend", _sessionInfo.Id);
+                _logger.LogDebug("[Session {Id}] Not releasing: acquiring backend", _sessionInfo.Id);
                 return;
             }
             
