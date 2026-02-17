@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Security.Cryptography;
 using Microsoft.Extensions.Logging;
 
 namespace PgBouncer.Core.Pooling;
@@ -26,9 +27,8 @@ public sealed class BackendConnection : IServerConnection
     public string Username { get; }
     public PipeWriter Writer { get; }
 
-    Stream IServerConnection.Stream => throw new NotSupportedException("Use Writer for Pipelines I/O");
     public bool IsBroken => _isBroken == 1;
-    public bool IsHealthy => !IsBroken; // НЕ проверяем _socket.Connected - он не надежен
+    public bool IsHealthy => !IsBroken;
     public DateTime LastActivity => _lastActivity;
     public int Generation { get; set; }
 
@@ -57,8 +57,9 @@ public sealed class BackendConnection : IServerConnection
             var result = await _reader.ReadAsync(cancellationToken);
             var buffer = result.Buffer;
 
-            while (TryParseMessage(ref buffer, out var message, out var msgType))
+            while (TryParseMessage(buffer, out var message, out var msgType, out var remainder))
             {
+                buffer = remainder;
                 char c = (char)msgType;
 
                 if (c == 'R')
@@ -130,7 +131,10 @@ public sealed class BackendConnection : IServerConnection
         }
         else if (authCode == 5) // MD5Password
         {
-            throw new NotSupportedException("MD5 auth not implemented");
+            var salt = data.AsSpan().Slice(9, 4).ToArray();
+            var response = CalculateMD5Response(password, Username, salt);
+            WritePasswordMessage(response);
+            await Writer.FlushAsync(ct);
         }
         else
         {
@@ -144,6 +148,46 @@ public sealed class BackendConnection : IServerConnection
         int messageLen = 4 + passByteCount + 1;
         int totalLen = 1 + messageLen;
 
+        var mem = Writer.GetMemory(1 + len);
+
+        mem.Span[0] = (byte)'p';
+        BinaryPrimitives.WriteInt32BigEndian(mem.Span.Slice(1), len);
+        passBytes.CopyTo(mem.Span.Slice(5));
+        mem.Span[5 + passBytes.Length] = 0;
+
+        Writer.Advance(1 + len);
+    }
+
+    private static string CalculateMD5Response(string password, string username, byte[] salt)
+    {
+        string shadow;
+        if (password.StartsWith("md5") && password.Length == 35)
+        {
+            shadow = password;
+        }
+        else
+        {
+            shadow = "md5" + CreateMD5(password + username);
+        }
+
+        var shadowHash = shadow.Substring(3);
+
+        using var md5 = MD5.Create();
+        var shadowBytes = Encoding.UTF8.GetBytes(shadowHash);
+        var input = new byte[shadowBytes.Length + salt.Length];
+        shadowBytes.CopyTo(input, 0);
+        salt.CopyTo(input, shadowBytes.Length);
+
+        var hash = md5.ComputeHash(input);
+        return "md5" + Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static string CreateMD5(string input)
+    {
+        using var md5 = MD5.Create();
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = md5.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
         var buf = Writer.GetSpan(totalLen);
         buf[0] = (byte)'p';
         BinaryPrimitives.WriteInt32BigEndian(buf.Slice(1), messageLen);
@@ -164,11 +208,6 @@ public sealed class BackendConnection : IServerConnection
         UpdateActivity();
     }
 
-    void IServerConnection.AttachHandler(IBackendPacketHandler handler)
-    {
-        throw new NotSupportedException("Use AttachHandler(IBackendHandler)");
-    }
-
     public void DetachHandler()
     {
         _handler = null;
@@ -185,6 +224,73 @@ public sealed class BackendConnection : IServerConnection
     public void MarkDirty() { }
     public bool IsIdle(int timeout) => timeout > 0 && (DateTime.UtcNow - _lastActivity).TotalSeconds > timeout;
 
+    public async Task ExecuteResetQueryAsync()
+    {
+        if (IsBroken) return;
+
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new ResetHandler(tcs);
+
+        try
+        {
+            AttachHandler(handler);
+
+            var query = "DISCARD ALL";
+            var queryBytes = Encoding.UTF8.GetBytes(query);
+            var len = 4 + queryBytes.Length + 1;
+
+            var mem = Writer.GetMemory(1 + len);
+
+            mem.Span[0] = (byte)'Q';
+            BinaryPrimitives.WriteInt32BigEndian(mem.Span.Slice(1), len);
+            queryBytes.CopyTo(mem.Span.Slice(5));
+            mem.Span[5 + queryBytes.Length] = 0;
+
+            Writer.Advance(1 + len);
+            await Writer.FlushAsync();
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            using var reg = cts.Token.Register(() => tcs.TrySetCanceled());
+
+            await tcs.Task;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Failed to execute reset query on connection {Id}", Id);
+            MarkAsBroken();
+            throw;
+        }
+        finally
+        {
+            DetachHandler();
+        }
+    }
+
+    private class ResetHandler : IBackendHandler
+    {
+        private readonly TaskCompletionSource _tcs;
+
+        public ResetHandler(TaskCompletionSource tcs) => _tcs = tcs;
+
+        public ValueTask HandleBackendMessageAsync(ReadOnlySequence<byte> message, byte messageType)
+        {
+            if (messageType == (byte)'Z')
+            {
+                _tcs.TrySetResult();
+            }
+            else if (messageType == (byte)'E')
+            {
+                _tcs.TrySetException(new Exception("Reset query failed (ErrorResponse received)"));
+            }
+            return ValueTask.CompletedTask;
+        }
+
+        public void OnBackendDisconnected(Exception? ex)
+        {
+            _tcs.TrySetException(ex ?? new Exception("Backend disconnected during reset"));
+        }
+    }
+
     private async Task ReadLoopAsync()
     {
         try
@@ -194,8 +300,9 @@ public sealed class BackendConnection : IServerConnection
                 var result = await _reader.ReadAsync(_readLoopCts.Token);
                 var buffer = result.Buffer;
 
-                while (TryParseMessage(ref buffer, out var message, out var msgType))
+                while (TryParseMessage(buffer, out var message, out var msgType, out var remainder))
                 {
+                    buffer = remainder;
                     var handler = _handler;
                     if (handler != null)
                     {
@@ -214,7 +321,6 @@ public sealed class BackendConnection : IServerConnection
         }
         catch (OperationCanceledException)
         {
-            // Normal shutdown - expected
         }
         catch (Exception ex)
         {
@@ -227,10 +333,11 @@ public sealed class BackendConnection : IServerConnection
         }
     }
 
-    private bool TryParseMessage(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message, out byte msgType)
+    private bool TryParseMessage(ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> message, out byte msgType, out ReadOnlySequence<byte> remainder)
     {
         message = default;
         msgType = 0;
+        remainder = buffer;
 
         if (buffer.Length < 5) return false;
 
@@ -249,7 +356,7 @@ public sealed class BackendConnection : IServerConnection
         if (buffer.Length < total) return false;
 
         message = buffer.Slice(0, total);
-        buffer = buffer.Slice(total);
+        remainder = buffer.Slice(total);
         return true;
     }
 
@@ -258,25 +365,20 @@ public sealed class BackendConnection : IServerConnection
         char typeChar = (char)msgType;
         switch (typeChar)
         {
-            case 'N': // NoticeResponse
-            case 'S': // ParameterStatus  
-            case 'A': // NotificationResponse
-            case 'Z': // ReadyForQuery
-            case '1': // ParseComplete (Extended Query Protocol)
-            case '2': // BindComplete (Extended Query Protocol)
-            case 'T': // RowDescription (Extended Query Protocol)
-            case 'D': // DataRow (Extended Query Protocol)
-            case 'C': // CommandComplete (Extended Query Protocol)
-                // Нормальный фоновый шум или хвосты Extended Query Protocol
+            case 'N':
+            case 'S':
+            case 'A':
+            case 'Z':
+            case '1':
+            case '2':
+            case 'T':
+            case 'D':
+            case 'C':
                 break;
             case 'E':
-                // Ошибка от базы (например, админ сделал pg_terminate_backend)
-                Console.WriteLine($"[Backend {_socket.Handle}] Broken while idle: received ErrorResponse (E)");
                 MarkAsBroken();
                 break;
             default:
-                // Сессия не дочитала данные от прошлого запроса - десинхронизация
-                Console.WriteLine($"[Backend {_socket.Handle}] Protocol desync! Received unexpected packet '{typeChar}' (0x{msgType:X2}) in Idle state.");
                 MarkAsBroken();
                 break;
         }

@@ -4,16 +4,15 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Authentication;
 
 namespace PgBouncer.Server;
 
-/// <summary>
-/// TCP прокси-сервер для приёма клиентских соединений
-/// </summary>
 public class ProxyServer : IDisposable
 {
     private readonly PgBouncerConfig _config;
     private readonly PoolManager _poolManager;
+    private readonly UserRegistry _userRegistry;
     private readonly ILogger<ProxyServer> _logger;
     private readonly SemaphoreSlim _backendConnectionLimit;
 
@@ -21,7 +20,6 @@ public class ProxyServer : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _acceptTask;
 
-    // Статистика активных сессий
     private int _activeSessions;
     private int _activeBackendConnections;
     private int _waitingClients;
@@ -31,48 +29,22 @@ public class ProxyServer : IDisposable
     private long _timeoutCount;
     private readonly ConcurrentDictionary<Guid, SessionInfo> _sessions = new();
 
-    /// <summary>Количество активных сессий</summary>
     public int ActiveSessions => _activeSessions;
-
-    /// <summary>Активных backend соединений</summary>
     public int ActiveBackendConnections => _activeBackendConnections;
-
-    /// <summary>Клиентов в очереди ожидания</summary>
     public int WaitingClients => _waitingClients;
-
-    /// <summary>Максимум backend соединений</summary>
     public int MaxBackendConnections => _config.Pool.MaxSize;
-
-    /// <summary>Всего соединений с момента запуска</summary>
     public long TotalConnections => _totalConnections;
-
-    /// <summary>Среднее время ожидания (мс)</summary>
     public long AvgWaitTimeMs => _totalConnections > 0 ? _totalWaitTimeMs / _totalConnections : 0;
-
-    /// <summary>Максимальное время ожидания (мс)</summary>
     public long MaxWaitTimeMs => _maxWaitTimeMs;
-
-    /// <summary>Количество таймаутов</summary>
     public long TimeoutCount => _timeoutCount;
-
-    /// <summary>Информация о текущих сессиях</summary>
     public IReadOnlyDictionary<Guid, SessionInfo> Sessions => _sessions;
-
-    /// <summary>Менеджер пулов для статистики</summary>
     public PoolManager PoolManager => _poolManager;
-
-    /// <summary>Семафор для ограничения backend соединений</summary>
     public SemaphoreSlim BackendConnectionLimit => _backendConnectionLimit;
-
-    /// <summary>Конфигурация</summary>
     public PgBouncerConfig Config => _config;
 
-    /// <summary>Записать время ожидания</summary>
     public void RecordWaitTime(long waitTimeMs)
     {
         Interlocked.Add(ref _totalWaitTimeMs, waitTimeMs);
-
-        // Атомарно обновляем максимум
         long current;
         do
         {
@@ -81,7 +53,6 @@ public class ProxyServer : IDisposable
         } while (Interlocked.CompareExchange(ref _maxWaitTimeMs, waitTimeMs, current) != current);
     }
 
-    /// <summary>Записать таймаут</summary>
     public void RecordTimeout()
     {
         Interlocked.Increment(ref _timeoutCount);
@@ -90,22 +61,21 @@ public class ProxyServer : IDisposable
     public ProxyServer(
         PgBouncerConfig config,
         PoolManager poolManager,
+        UserRegistry userRegistry,
         ILogger<ProxyServer> logger)
     {
         _config = config;
         _poolManager = poolManager;
+        _userRegistry = userRegistry;
         _logger = logger;
-
-        // Ограничиваем количество backend соединений
         _backendConnectionLimit = new SemaphoreSlim(config.Pool.MaxSize, config.Pool.MaxSize);
         _logger.LogInformation("Лимит backend соединений: {MaxSize}", config.Pool.MaxSize);
     }
 
-    /// <summary>
-    /// Запустить сервер
-    /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
+        _userRegistry.Load(_config.Auth.AuthFile);
+
         _listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         _listenerSocket.Bind(new IPEndPoint(IPAddress.Any, _config.ListenPort));
         _listenerSocket.Listen(500);
@@ -136,9 +106,6 @@ public class ProxyServer : IDisposable
         await Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Остановить сервер
-    /// </summary>
     public async Task StopAsync()
     {
         _logger.LogInformation("Остановка PgBouncer.NET...");
@@ -154,9 +121,6 @@ public class ProxyServer : IDisposable
         _logger.LogInformation("PgBouncer.NET остановлен");
     }
 
-    /// <summary>
-    /// Graceful shutdown - ждёт завершения активных сессий
-    /// </summary>
     public async Task ShutdownAsync(TimeSpan? timeout = null)
     {
         timeout ??= TimeSpan.FromSeconds(30);
@@ -183,9 +147,6 @@ public class ProxyServer : IDisposable
         _logger.LogInformation("PgBouncer.NET shutdown complete");
     }
 
-    /// <summary>
-    /// Принимать входящие соединения
-    /// </summary>
     private async Task AcceptConnectionsAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -193,9 +154,6 @@ public class ProxyServer : IDisposable
             try
             {
                 var clientSocket = await _listenerSocket!.AcceptAsync(cancellationToken);
-
-                // Обрабатываем каждого клиента в отдельной задаче
-                // Логгирование перенесено внутрь, чтобы не тормозить Accept loop
                 _ = Task.Run(async () => await HandleClientAsync(clientSocket, cancellationToken),
                     cancellationToken);
             }
@@ -210,9 +168,6 @@ public class ProxyServer : IDisposable
         }
     }
 
-    /// <summary>
-    /// Обработать клиентское соединение
-    /// </summary>
     private async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
     {
         var sessionId = Guid.NewGuid();
@@ -231,6 +186,7 @@ public class ProxyServer : IDisposable
             clientSocket,
             _config,
             _poolManager,
+            _userRegistry,
             _logger,
             sessionInfo);
 

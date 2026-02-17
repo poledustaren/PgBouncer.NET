@@ -6,13 +6,12 @@ using Microsoft.AspNetCore.Hosting;
 using Serilog;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Authentication;
 using PgBouncer.Server;
 using System.Text.Json;
 
-// Генерация уникального ID запуска для логов
 var runId = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
-// Настройка Serilog
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .WriteTo.Console()
@@ -25,18 +24,17 @@ try
 {
     Log.Information("Запуск PgBouncer.NET...");
 
-    // БЛ*ТЬ, НУЖНО БОЛЬШЕ ПОТОКОВ ДЛЯ СТРЕСС-ТЕСТА!
-    // Дефолтный пул растет слишком медленно, и мы ловим таймауты на старте как лохи.
     ThreadPool.SetMinThreads(1000, 1000);
 
     var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog();
+    builder.Host.UseWindowsService();
 
-    // Конфигурация
     var config = builder.Configuration.Get<PgBouncerConfig>() ?? new PgBouncerConfig();
     builder.Services.AddSingleton(config);
 
-    // Пул-менеджер (один на всех!) - с логгером!
+    builder.Services.AddSingleton<UserRegistry>();
+
     builder.Services.AddSingleton(sp =>
     {
         var cfg = sp.GetRequiredService<PgBouncerConfig>();
@@ -44,17 +42,14 @@ try
         return new PoolManager(cfg, logger);
     });
 
-    // Прокси-сервер
     builder.Services.AddSingleton<ProxyServer>();
     builder.Services.AddHostedService<ProxyServerHostedService>();
     builder.Services.AddHostedService<MetricsMonitorService>();
 
-    // Controllers и Swagger
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
-    // CORS для дашборда
     builder.Services.AddCors(options =>
     {
         options.AddDefaultPolicy(policy =>
@@ -67,36 +62,27 @@ try
 
     var app = builder.Build();
 
-    // Swagger
     app.UseSwagger();
     app.UseSwaggerUI();
 
     app.UseCors();
 
-    // Статические файлы дашборда
     app.UseDefaultFiles();
     app.UseStaticFiles();
 
-    // API Controllers
     app.MapControllers();
 
-    // API endpoint для статистики сессий (ProxyServer)
     app.MapGet("/api/sessions", (ProxyServer proxyServer) => Results.Ok(new
     {
-        // Основные метрики
         ActiveSessions = proxyServer.ActiveSessions,
         ActiveBackendConnections = proxyServer.ActiveBackendConnections,
         MaxBackendConnections = proxyServer.MaxBackendConnections,
         WaitingClients = proxyServer.WaitingClients,
         TotalConnections = proxyServer.TotalConnections,
-
-        // Метрики времени ожидания
         AvgWaitTimeMs = proxyServer.AvgWaitTimeMs,
         MaxWaitTimeMs = proxyServer.MaxWaitTimeMs,
         TimeoutCount = proxyServer.TimeoutCount,
         ConnectionTimeout = proxyServer.Config.Pool.ConnectionTimeout,
-
-        // Сессии с детализацией
         Sessions = proxyServer.Sessions.Values.Select(s => new
         {
             s.Id,
@@ -110,7 +96,6 @@ try
         })
     }));
 
-    // Баннер
     Console.WriteLine();
     Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
     Console.WriteLine("║                   PgBouncer.NET                          ║");
@@ -133,9 +118,6 @@ finally
     Log.CloseAndFlush();
 }
 
-/// <summary>
-/// Hosted service для запуска ProxyServer
-/// </summary>
 class ProxyServerHostedService : IHostedService
 {
     private readonly ProxyServer _proxyServer;

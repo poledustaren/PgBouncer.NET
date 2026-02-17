@@ -9,6 +9,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using PgBouncer.Core.Authentication;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
 
@@ -23,6 +25,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     private readonly PipeWriter _clientWriter;
     private readonly PgBouncerConfig _config;
     private readonly PoolManager _poolManager;
+    private readonly UserRegistry _userRegistry;
     private readonly ILogger _logger;
     private readonly SessionInfo _sessionInfo;
 
@@ -39,12 +42,14 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         Socket clientSocket,
         PgBouncerConfig config,
         PoolManager poolManager,
+        UserRegistry userRegistry,
         ILogger logger,
         SessionInfo sessionInfo)
     {
         _clientSocket = clientSocket;
         _config = config;
         _poolManager = poolManager;
+        _userRegistry = userRegistry;
         _logger = logger;
         _sessionInfo = sessionInfo;
 
@@ -123,14 +128,30 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                     
                     _database = parameters.GetValueOrDefault("database") ?? "postgres";
                     _username = parameters.GetValueOrDefault("user") ?? "postgres";
-                    _password = _config.Backend.AdminPassword;
 
                     _sessionInfo.Database = _database;
                     _sessionInfo.Username = _username;
 
+                    _clientReader.AdvanceTo(buffer.Slice(length).Start);
+
+                    if (!await PerformAuthenticationAsync(cancellationToken))
+                    {
+                        await SendFatalErrorToClientAsync("Authentication failed");
+                        return false;
+                    }
+
+                    var shadow = _userRegistry.GetShadowPassword(_username);
+                    if (shadow != null && !shadow.StartsWith("md5"))
+                    {
+                        _password = shadow;
+                    }
+                    else
+                    {
+                        _password = _config.Backend.AdminPassword;
+                    }
+
                     _pool = await _poolManager.GetPoolAsync(_database, _username, _password);
 
-                    _clientReader.AdvanceTo(buffer.Slice(length).Start);
                     await SendAuthenticationOkAsync(cancellationToken);
                     return true;
                 }
@@ -151,28 +172,126 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         int pos = 0;
         while (pos < data.Length)
         {
-            // Ищем конец ключа (нулевой байт)
             int keyEnd = Array.IndexOf(data, (byte)0, pos);
-            
-            // Если не нашли нулевой байт или ключ пустой - выходим
-            // Пустой ключ означает конец списка (два нулевых байта подряд)
             if (keyEnd < 0 || keyEnd == pos) break;
 
             var key = Encoding.UTF8.GetString(data, pos, keyEnd - pos);
             pos = keyEnd + 1;
 
-            // Проверяем что есть место для значения
             if (pos >= data.Length) break;
             
-            // Ищем конец значения (нулевой байт)
             int valEnd = Array.IndexOf(data, (byte)0, pos);
-            if (valEnd < 0) break; // Не нашли - выходим
+            if (valEnd < 0) break;
 
             var value = Encoding.UTF8.GetString(data, pos, valEnd - pos);
             pos = valEnd + 1;
 
             parameters[key] = value;
         }
+    }
+
+    private async Task<bool> PerformAuthenticationAsync(CancellationToken cancellationToken)
+    {
+        var authType = _config.Auth.Type.ToLowerInvariant();
+        var username = _username ?? "postgres";
+
+        if (authType == "trust") return true;
+
+        if (authType == "md5")
+        {
+            var secret = _userRegistry.GetShadowPassword(username);
+            if (secret == null)
+            {
+                _logger.LogWarning("[Session {Id}] User {User} not found in registry", _sessionInfo.Id, username);
+                return false;
+            }
+
+            var salt = new byte[4];
+            Random.Shared.NextBytes(salt);
+
+            using var ms = new MemoryStream();
+            ms.WriteByte((byte)'R');
+            WriteInt32BigEndian(ms, 12);
+            WriteInt32BigEndian(ms, 5);
+            ms.Write(salt);
+            await _clientWriter.WriteAsync(ms.ToArray(), cancellationToken);
+            await _clientWriter.FlushAsync(cancellationToken);
+
+            while (true)
+            {
+                var result = await _clientReader.ReadAsync(cancellationToken);
+                var buffer = result.Buffer;
+
+                if (TryParseFrontendMessage(buffer, out var message, out var msgType, out var remainder))
+                {
+                    buffer = remainder;
+
+                    if (msgType != (byte)'p')
+                    {
+                        _logger.LogWarning("[Session {Id}] Expected PasswordMessage (p), got {Type}", _sessionInfo.Id, (char)msgType);
+                        return false;
+                    }
+
+                    var payload = message.Slice(5);
+                    var end = payload.PositionOf((byte)0);
+                    if (end == null) return false;
+
+                    var passwordSpan = payload.Slice(0, end.Value);
+                    var clientResponse = Encoding.UTF8.GetString(passwordSpan.ToArray());
+
+                    _clientReader.AdvanceTo(buffer.Start);
+
+                    if (!secret.StartsWith("md5"))
+                    {
+                        secret = "md5" + CreateMD5(secret + username);
+                    }
+
+                    var shadowHash = secret.Substring(3);
+
+                    if (VerifyMD5(shadowHash, salt, clientResponse))
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[Session {Id}] MD5 verification failed for user {User}", _sessionInfo.Id, username);
+                        return false;
+                    }
+                }
+
+                _clientReader.AdvanceTo(buffer.Start, buffer.End);
+                if (result.IsCompleted) return false;
+            }
+        }
+        else if (authType == "plain")
+        {
+             _logger.LogWarning("Plain auth not implemented yet");
+             return false;
+        }
+
+        return true;
+    }
+
+    private bool VerifyMD5(string shadowHash, byte[] salt, string clientResponse)
+    {
+        using var md5 = MD5.Create();
+        var shadowBytes = Encoding.UTF8.GetBytes(shadowHash);
+        var input = new byte[shadowBytes.Length + salt.Length];
+        shadowBytes.CopyTo(input, 0);
+        salt.CopyTo(input, shadowBytes.Length);
+
+        var hash = md5.ComputeHash(input);
+        var expected = "md5" + Convert.ToHexString(hash).ToLowerInvariant();
+
+        return expected == clientResponse;
+    }
+
+    private static string CreateMD5(string input)
+    {
+        using var md5 = MD5.Create();
+        var bytes = Encoding.UTF8.GetBytes(input);
+        var hash = md5.ComputeHash(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
     private bool TryReadStartupHeader(ReadOnlySequence<byte> buffer, out int length, out int protocolCode)
@@ -198,7 +317,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         WriteInt32BigEndian(ms, 8);
         WriteInt32BigEndian(ms, 0);
         
-        // ParameterStatus messages (required by Npgsql)
+        // ParameterStatus messages
         WriteParameterStatus(ms, "server_version", "16.0");
         WriteParameterStatus(ms, "server_encoding", "UTF8");
         WriteParameterStatus(ms, "client_encoding", "UTF8");
@@ -257,8 +376,9 @@ public sealed class ClientSession : IBackendHandler, IDisposable
                 if (result.IsCompleted || result.IsCanceled)
                     break;
 
-                while (TryParseFrontendMessage(ref buffer, out ReadOnlySequence<byte> message, out byte msgType))
+                while (TryParseFrontendMessage(buffer, out ReadOnlySequence<byte> message, out byte msgType, out var remainder))
                 {
+                    buffer = remainder;
                     cancellationToken.ThrowIfCancellationRequested();
 
                     char typeChar = (char)msgType;
@@ -374,12 +494,14 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     }
 
     private bool TryParseFrontendMessage(
-        ref ReadOnlySequence<byte> buffer,
+        ReadOnlySequence<byte> buffer,
         out ReadOnlySequence<byte> message,
-        out byte messageType)
+        out byte messageType,
+        out ReadOnlySequence<byte> remainder)
     {
         message = default;
         messageType = 0;
+        remainder = buffer;
 
         if (buffer.Length < 5)
             return false;
@@ -393,7 +515,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
             return false;
 
         message = buffer.Slice(0, totalPacketLength);
-        buffer = buffer.Slice(totalPacketLength);
+        remainder = buffer.Slice(totalPacketLength);
         return true;
     }
 
@@ -448,12 +570,11 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     {
         _logger.LogWarning(ex, "[Session {Id}] Backend disconnected", _sessionInfo.Id);
         
-        // Сначала отправляем ошибку клиенту (синхронно), затем закрываем
         try
         {
             SendFatalErrorToClientAsync("Backend connection lost").Wait(TimeSpan.FromSeconds(2));
         }
-        catch { /* Игнорируем ошибки при отправке */ }
+        catch { }
         
         AbortSession();
     }
@@ -462,38 +583,28 @@ public sealed class ClientSession : IBackendHandler, IDisposable
     {
         try
         {
-            // Формат ErrorResponse 'E': 'S' SEVERITY \0 'C' CODE \0 'M' MESSAGE \0\0
             using var ms = new MemoryStream();
-            
-            // Type byte
             ms.WriteByte((byte)'E');
-            
-            // We'll calculate and write length at the end
             int lengthPosition = (int)ms.Position;
-            ms.Write(new byte[4], 0, 4); // Placeholder for length
+            ms.Write(new byte[4], 0, 4);
             
-            // Severity
             ms.WriteByte((byte)'S');
             var severity = System.Text.Encoding.UTF8.GetBytes("FATAL");
             ms.Write(severity, 0, severity.Length);
             ms.WriteByte(0);
             
-            // SQLSTATE Code
             ms.WriteByte((byte)'C');
-            var code = System.Text.Encoding.UTF8.GetBytes("08006"); // connection_failure
+            var code = System.Text.Encoding.UTF8.GetBytes("08006");
             ms.Write(code, 0, code.Length);
             ms.WriteByte(0);
             
-            // Message
             ms.WriteByte((byte)'M');
             var msg = System.Text.Encoding.UTF8.GetBytes(message);
             ms.Write(msg, 0, msg.Length);
             ms.WriteByte(0);
             
-            // Null terminator
             ms.WriteByte(0);
             
-            // Update length
             int totalLength = (int)ms.Position;
             ms.Position = lengthPosition;
             byte[] lengthBytes = new byte[4];
@@ -503,7 +614,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
             await _clientWriter.WriteAsync(ms.ToArray());
             await _clientWriter.FlushAsync();
         }
-        catch { /* Игнорируем, клиент уже мертв */ }
+        catch { }
     }
 
     private void AbortSession()
@@ -514,7 +625,7 @@ public sealed class ClientSession : IBackendHandler, IDisposable
         {
             _clientSocket.Close(); 
         }
-        catch { /* Игнорируем ошибки при жестком закрытии */ }
+        catch { }
     }
 
     private void ReleaseBackendIfIdle()
