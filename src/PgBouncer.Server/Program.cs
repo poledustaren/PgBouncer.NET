@@ -3,12 +3,15 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Connections; // Add this
 using Serilog;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
 using PgBouncer.Core.Authentication;
 using PgBouncer.Server;
+using PgBouncer.Server.Handlers;
 using System.Text.Json;
+using System.Net;
 
 var runId = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
 
@@ -24,7 +27,7 @@ try
 {
     Log.Information("Запуск PgBouncer.NET...");
 
-    ThreadPool.SetMinThreads(1000, 1000);
+    // REMOVED: ThreadPool.SetMinThreads(1000, 1000); - Anti-pattern for high-perf async I/O
 
     var builder = WebApplication.CreateBuilder(args);
     builder.Host.UseSerilog();
@@ -32,6 +35,19 @@ try
 
     var config = builder.Configuration.Get<PgBouncerConfig>() ?? new PgBouncerConfig();
     builder.Services.AddSingleton(config);
+
+    if (config.Ssl.Enabled && !string.IsNullOrEmpty(config.Ssl.CertificatePath))
+    {
+        try
+        {
+            var cert = new System.Security.Cryptography.X509Certificates.X509Certificate2(config.Ssl.CertificatePath, config.Ssl.Password);
+            builder.Services.AddSingleton(cert);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to load SSL certificate");
+        }
+    }
 
     builder.Services.AddSingleton<UserRegistry>();
 
@@ -43,8 +59,27 @@ try
     });
 
     builder.Services.AddSingleton<ProxyServer>();
-    builder.Services.AddHostedService<ProxyServerHostedService>();
+    builder.Services.AddHostedService<ProxyServerHostedService>(); // Keeps stats and warmup
     builder.Services.AddHostedService<MetricsMonitorService>();
+
+    builder.Services.AddTransient<PgConnectionHandler>();
+
+    builder.WebHost.ConfigureKestrel(serverOptions =>
+    {
+        var cfg = serverOptions.ApplicationServices.GetRequiredService<PgBouncerConfig>();
+
+        // Proxy Listener (ConnectionHandler)
+        serverOptions.ListenAnyIP(cfg.ListenPort, listenOptions =>
+        {
+            listenOptions.UseConnectionHandler<PgConnectionHandler>();
+        });
+
+        // Dashboard Listener (HTTP API)
+        serverOptions.ListenAnyIP(cfg.DashboardPort, listenOptions =>
+        {
+            listenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http1AndHttp2;
+        });
+    });
 
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
@@ -107,7 +142,7 @@ try
     Console.WriteLine($"  Backend:    {config.Backend.Host}:{config.Backend.Port}");
     Console.WriteLine();
 
-    await app.RunAsync($"http://0.0.0.0:{config.DashboardPort}");
+    await app.RunAsync();
 }
 catch (Exception ex)
 {
@@ -129,6 +164,7 @@ class ProxyServerHostedService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // Now only handles warmup, not socket listening
         await _proxyServer.StartAsync(cancellationToken);
     }
 

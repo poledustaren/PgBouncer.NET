@@ -16,10 +16,6 @@ public class ProxyServer : IDisposable
     private readonly ILogger<ProxyServer> _logger;
     private readonly SemaphoreSlim _backendConnectionLimit;
 
-    private Socket? _listenerSocket;
-    private CancellationTokenSource? _cts;
-    private Task? _acceptTask;
-
     private int _activeSessions;
     private int _activeBackendConnections;
     private int _waitingClients;
@@ -76,15 +72,6 @@ public class ProxyServer : IDisposable
     {
         _userRegistry.Load(_config.Auth.AuthFile);
 
-        _listenerSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        _listenerSocket.Bind(new IPEndPoint(IPAddress.Any, _config.ListenPort));
-        _listenerSocket.Listen(500);
-
-        _logger.LogInformation("PgBouncer.NET запущен на порту {Port}", _config.ListenPort);
-
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _acceptTask = AcceptConnectionsAsync(_cts.Token);
-
         if (_config.Pool.MinSize > 0)
         {
             _logger.LogInformation("Starting connection warming with {MinSize} connections...", _config.Pool.MinSize);
@@ -103,113 +90,34 @@ public class ProxyServer : IDisposable
             }
         }
 
+        // Listener is now handled by Kestrel in Program.cs
         await Task.CompletedTask;
     }
 
     public async Task StopAsync()
     {
         _logger.LogInformation("Остановка PgBouncer.NET...");
-
-        _cts?.Cancel();
-        _listenerSocket?.Close();
-
-        if (_acceptTask != null)
-        {
-            await _acceptTask;
-        }
-
+        // Cleanup logic if needed
         _logger.LogInformation("PgBouncer.NET остановлен");
     }
 
-    public async Task ShutdownAsync(TimeSpan? timeout = null)
+    // Methods for PgConnectionHandler to update stats
+    public void RegisterSession(SessionInfo session)
     {
-        timeout ??= TimeSpan.FromSeconds(30);
-        _logger.LogInformation("Graceful shutdown initiated. Waiting for {ActiveSessions} active sessions (timeout: {Timeout}s)",
-            _activeSessions, timeout.Value.TotalSeconds);
-
-        _cts?.Cancel();
-        _listenerSocket?.Close();
-
-        var startTime = DateTime.UtcNow;
-        while (_activeSessions > 0 && (DateTime.UtcNow - startTime) < timeout.Value)
-        {
-            _logger.LogDebug("Waiting for {ActiveSessions} active sessions to complete...", _activeSessions);
-            await Task.Delay(100);
-        }
-
-        if (_activeSessions > 0)
-        {
-            _logger.LogWarning("Graceful shutdown timeout. {ActiveSessions} sessions still active, forcing close.", _activeSessions);
-        }
-
-        _poolManager.Dispose();
-
-        _logger.LogInformation("PgBouncer.NET shutdown complete");
-    }
-
-    private async Task AcceptConnectionsAsync(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                var clientSocket = await _listenerSocket!.AcceptAsync(cancellationToken);
-                _ = Task.Run(async () => await HandleClientAsync(clientSocket, cancellationToken),
-                    cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка при приёме соединения");
-            }
-        }
-    }
-
-    private async Task HandleClientAsync(Socket clientSocket, CancellationToken cancellationToken)
-    {
-        var sessionId = Guid.NewGuid();
-        var sessionInfo = new SessionInfo
-        {
-            Id = sessionId,
-            StartedAt = DateTime.UtcNow,
-            RemoteEndPoint = clientSocket.RemoteEndPoint?.ToString() ?? "unknown"
-        };
-
-        _sessions[sessionId] = sessionInfo;
+        _sessions[session.Id] = session;
         Interlocked.Increment(ref _activeSessions);
         Interlocked.Increment(ref _totalConnections);
+    }
 
-        using var session = new ClientSession(
-            clientSocket,
-            _config,
-            _poolManager,
-            _userRegistry,
-            _logger,
-            sessionInfo);
-
-        try
-        {
-            await session.RunAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Ошибка в клиентской сессии");
-            sessionInfo.State = SessionState.Error;
-        }
-        finally
-        {
-            sessionInfo.State = SessionState.Completed;
-            _sessions.TryRemove(sessionId, out _);
-            Interlocked.Decrement(ref _activeSessions);
-        }
+    public void UnregisterSession(Guid sessionId)
+    {
+        _sessions.TryRemove(sessionId, out _);
+        Interlocked.Decrement(ref _activeSessions);
     }
 
     public void Dispose()
     {
-        _cts?.Dispose();
-        _listenerSocket?.Dispose();
+        // _cts?.Dispose();
+        // _listenerSocket?.Dispose();
     }
 }

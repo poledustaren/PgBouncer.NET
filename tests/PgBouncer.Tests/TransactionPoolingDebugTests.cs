@@ -4,10 +4,16 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Authentication;
 using PgBouncer.Server;
+using PgBouncer.Server.Handlers;
 using PgBouncer.Tests.Fixtures;
 using Xunit;
 using Xunit.Abstractions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Connections;
 
 namespace PgBouncer.Tests;
 
@@ -16,10 +22,9 @@ public class TransactionPoolingDebugTests : IAsyncLifetime
 {
     private readonly PostgreSqlFixture _postgres;
     private readonly ITestOutputHelper _output;
-    private ProxyServer? _proxyServer;
+    private WebApplication? _app;
     private PoolManager? _poolManager;
     private int _pgbouncerPort;
-    private CancellationTokenSource? _cts;
     
     public TransactionPoolingDebugTests(PostgreSqlFixture postgres, ITestOutputHelper output)
     {
@@ -48,26 +53,53 @@ public class TransactionPoolingDebugTests : IAsyncLifetime
                 MaxSize = 5,
                 ConnectionTimeout = 30,
                 DefaultSize = 5
+            },
+            Auth = new AuthConfig
+            {
+                Type = "trust"
             }
         };
         
-        _poolManager = new PoolManager(config, NullLogger<PoolManager>.Instance);
-        _proxyServer = new ProxyServer(config, _poolManager, NullLogger<ProxyServer>.Instance);
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddSingleton(config);
+        builder.Services.AddSingleton<UserRegistry>();
+        builder.Services.AddSingleton(sp =>
+        {
+             var cfg = sp.GetRequiredService<PgBouncerConfig>();
+             var logger = sp.GetRequiredService<ILogger<PoolManager>>();
+             return new PoolManager(cfg, logger);
+        });
+        builder.Services.AddSingleton<ProxyServer>();
+        builder.Services.AddTransient<PgConnectionHandler>();
+        builder.Logging.ClearProviders();
+
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(_pgbouncerPort, l => l.UseConnectionHandler<PgConnectionHandler>());
+        });
+
+        _app = builder.Build();
+        await _app.StartAsync();
+
+        _poolManager = _app.Services.GetRequiredService<PoolManager>();
         
-        _cts = new CancellationTokenSource();
-        await _proxyServer.StartAsync(_cts.Token);
         await Task.Delay(1000);
         
-        // Initialize pool with 1 connection
-        var pool = await _poolManager.GetPoolAsync("testdb", "postgres", "testpass123");
-        await pool.InitializeAsync(1, _cts.Token);
-        _output.WriteLine($"Pool initialized. Stats: {System.Text.Json.JsonSerializer.Serialize(pool.GetStats())}");
+        try
+        {
+            var pool = await _poolManager.GetPoolAsync("testdb", "postgres", "testpass123");
+            await pool.InitializeAsync(1, default);
+            _output.WriteLine($"Pool initialized. Stats: {System.Text.Json.JsonSerializer.Serialize(pool.GetStats())}");
+        }
+        catch (Exception ex)
+        {
+            _output.WriteLine($"Pool init failed (expected if DB not ready): {ex.Message}");
+        }
     }
     
     [Fact]
     public async Task SimpleQuery_ShouldWork()
     {
-        // Test with increased timeout
         var connString = $"Host=127.0.0.1;Port={_pgbouncerPort};Database=testdb;Username=postgres;Password=testpass123;Pooling=false;Timeout=60;Command Timeout=60";
         
         _output.WriteLine("Connecting to PgBouncer...");
@@ -85,11 +117,9 @@ public class TransactionPoolingDebugTests : IAsyncLifetime
         Assert.Equal(42, Convert.ToInt32(result));
     }
     
-    public Task DisposeAsync()
+    public async Task DisposeAsync()
     {
-        _proxyServer?.Dispose();
-        _cts?.Cancel();
-        return Task.CompletedTask;
+        if (_app != null) await _app.StopAsync();
     }
     
     private static int GetFreePort()

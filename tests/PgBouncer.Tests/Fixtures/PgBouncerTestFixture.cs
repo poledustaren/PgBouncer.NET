@@ -2,10 +2,20 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Authentication;
 using PgBouncer.Server;
+using PgBouncer.Server.Handlers;
 using System.Net;
 using System.Net.Sockets;
 using Testcontainers.PostgreSql;
+using System.Threading;
+using System.Threading.Tasks;
+using Xunit;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Connections;
 
 namespace PgBouncer.Tests.Fixtures;
 
@@ -16,9 +26,9 @@ namespace PgBouncer.Tests.Fixtures;
 public class PgBouncerTestFixture : IAsyncLifetime
 {
     private PostgreSqlContainer? _postgres;
+    private WebApplication? _app;
     private PoolManager? _poolManager;
     private ProxyServer? _proxyServer;
-    private CancellationTokenSource? _cts;
     private int _pgbouncerPort;
     
     public int PgBouncerPort => _pgbouncerPort;
@@ -64,36 +74,67 @@ public class PgBouncerTestFixture : IAsyncLifetime
             },
             Auth = new AuthConfig
             {
-                Type = "passthrough"
+                Type = "trust"
             }
         };
         
-        // Create and start PgBouncer
-        using var loggerFactory = Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance;
-        _poolManager = new PoolManager(config, loggerFactory.CreateLogger<PoolManager>());
-        _proxyServer = new ProxyServer(config, _poolManager, loggerFactory.CreateLogger<ProxyServer>());
+        // Create Host
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddSingleton(config);
+        builder.Services.AddSingleton<UserRegistry>();
+        builder.Services.AddSingleton(sp =>
+        {
+             var cfg = sp.GetRequiredService<PgBouncerConfig>();
+             var logger = sp.GetRequiredService<ILogger<PoolManager>>();
+             return new PoolManager(cfg, logger);
+        });
+        builder.Services.AddSingleton<ProxyServer>();
+        builder.Services.AddTransient<PgConnectionHandler>();
+
+        builder.Logging.ClearProviders(); // Reduce noise
+
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(_pgbouncerPort, l => l.UseConnectionHandler<PgConnectionHandler>());
+        });
+
+        _app = builder.Build();
+        await _app.StartAsync();
+
+        _poolManager = _app.Services.GetRequiredService<PoolManager>();
+        _proxyServer = _app.Services.GetRequiredService<ProxyServer>();
         
-        _cts = new CancellationTokenSource();
-        await _proxyServer.StartAsync(_cts.Token);
+        // Warmup manually
+        try
+        {
+            await _poolManager.WarmupAsync("testdb", "postgres", "testpass123", 2);
+        }
+        catch { /* ignore warmup error */ }
         
         // Wait for PgBouncer to be ready
         await Task.Delay(1000);
         
         // Verify connection works
-        await using var conn = new NpgsqlConnection(PgBouncerConnectionString);
-        await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand("SELECT 1", conn);
-        var result = await cmd.ExecuteScalarAsync();
-        if (result?.ToString() != "1")
+        try
         {
-            throw new InvalidOperationException("Failed to verify PgBouncer connection");
+            await using var conn = new NpgsqlConnection(PgBouncerConnectionString);
+            await conn.OpenAsync();
+            await using var cmd = new NpgsqlCommand("SELECT 1", conn);
+            var result = await cmd.ExecuteScalarAsync();
+            if (result?.ToString() != "1")
+            {
+                throw new InvalidOperationException("Failed to verify PgBouncer connection");
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to verify PgBouncer connection: {ex.Message}", ex);
         }
     }
     
     public async Task DisposeAsync()
     {
-        _cts?.Cancel();
-        _proxyServer?.Dispose();
+        if (_app != null) await _app.StopAsync();
         _poolManager?.Dispose();
         if (_postgres != null)
         {

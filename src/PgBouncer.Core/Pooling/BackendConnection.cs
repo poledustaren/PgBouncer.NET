@@ -28,7 +28,23 @@ public sealed class BackendConnection : IServerConnection
     public PipeWriter Writer { get; }
 
     public bool IsBroken => _isBroken == 1;
-    public bool IsHealthy => !IsBroken;
+    public bool IsHealthy
+    {
+        get
+        {
+            if (IsBroken) return false;
+            try
+            {
+                if (_socket == null || !_socket.Connected) return false;
+                // Strict check: if poll returns true (data available or closed), and we are in pool (idle),
+                // it is considered unhealthy because idle connection shouldn't have data pending.
+                if (_socket.Poll(0, SelectMode.SelectRead)) return false;
+                return true;
+            }
+            catch { return false; }
+        }
+    }
+
     public DateTime LastActivity => _lastActivity;
     public int Generation { get; set; }
 
@@ -87,12 +103,13 @@ public sealed class BackendConnection : IServerConnection
 
     private void WriteStartupMessage(string database, string user)
     {
-        int totalLen = 4 + 4
-            + Encoding.UTF8.GetByteCount("user") + 1
-            + Encoding.UTF8.GetByteCount(user) + 1
-            + Encoding.UTF8.GetByteCount("database") + 1
-            + Encoding.UTF8.GetByteCount(database) + 1
-            + 1;
+        int userLen = Encoding.UTF8.GetByteCount(user);
+        int dbLen = Encoding.UTF8.GetByteCount(database);
+
+        int totalLen = 4 + 4 // length + protocol
+            + 4 + 1 + userLen + 1 // "user\0" + user + "\0"
+            + 8 + 1 + dbLen + 1 // "database\0" + database + "\0"
+            + 1; // null terminator
 
         var buf = Writer.GetSpan(totalLen);
         int pos = 4;
@@ -148,14 +165,14 @@ public sealed class BackendConnection : IServerConnection
         int messageLen = 4 + passByteCount + 1;
         int totalLen = 1 + messageLen;
 
-        var mem = Writer.GetMemory(1 + len);
+        var mem = Writer.GetMemory(totalLen);
 
         mem.Span[0] = (byte)'p';
-        BinaryPrimitives.WriteInt32BigEndian(mem.Span.Slice(1), len);
-        passBytes.CopyTo(mem.Span.Slice(5));
-        mem.Span[5 + passBytes.Length] = 0;
+        BinaryPrimitives.WriteInt32BigEndian(mem.Span.Slice(1), messageLen);
+        Encoding.UTF8.GetBytes(password, mem.Span.Slice(5));
+        mem.Span[5 + passByteCount] = 0;
 
-        Writer.Advance(1 + len);
+        Writer.Advance(totalLen);
     }
 
     private static string CalculateMD5Response(string password, string username, byte[] salt)
@@ -188,13 +205,6 @@ public sealed class BackendConnection : IServerConnection
         var bytes = Encoding.UTF8.GetBytes(input);
         var hash = md5.ComputeHash(bytes);
         return Convert.ToHexString(hash).ToLowerInvariant();
-        var buf = Writer.GetSpan(totalLen);
-        buf[0] = (byte)'p';
-        BinaryPrimitives.WriteInt32BigEndian(buf.Slice(1), messageLen);
-        int written = Encoding.UTF8.GetBytes(password, buf.Slice(5));
-        buf[5 + written] = 0;
-
-        Writer.Advance(totalLen);
     }
 
     public void AttachHandler(IBackendHandler handler)
