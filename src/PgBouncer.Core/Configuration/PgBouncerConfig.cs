@@ -7,6 +7,7 @@ public class PgBouncerConfig
     public BackendConfig Backend { get; set; } = new();
     public PoolConfig Pool { get; set; } = new();
     public AuthConfig Auth { get; set; } = new();
+    public SslConfig Ssl { get; set; } = new();
 }
 
 public class BackendConfig
@@ -34,6 +35,14 @@ public class AuthConfig
 {
     public string Type { get; set; } = "md5";
     public string AuthFile { get; set; } = "userlist.txt";
+}
+
+public class SslConfig
+{
+    public bool Enabled { get; set; } = false;
+    public string CertificatePath { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public bool RequireSsl { get; set; } = false;
 }
 
 public enum PoolingMode

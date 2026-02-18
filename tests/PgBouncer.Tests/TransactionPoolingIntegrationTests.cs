@@ -4,8 +4,16 @@ using Microsoft.Extensions.Logging;
 using Npgsql;
 using PgBouncer.Core.Configuration;
 using PgBouncer.Core.Pooling;
+using PgBouncer.Core.Authentication;
 using PgBouncer.Server;
+using PgBouncer.Server.Handlers;
 using PgBouncer.Tests.Fixtures;
+using FluentAssertions;
+using Xunit;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Connections;
 
 namespace PgBouncer.Tests;
 
@@ -13,7 +21,7 @@ namespace PgBouncer.Tests;
 public class TransactionPoolingIntegrationTests : IAsyncLifetime
 {
     private readonly PostgreSqlFixture _postgres;
-    private ProxyServer? _proxyServer;
+    private WebApplication? _app;
     private PoolManager? _poolManager;
     private int _pgbouncerPort;
     private CancellationTokenSource? _cts;
@@ -25,13 +33,9 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     
     public async Task InitializeAsync()
     {
-        // Find free port for PgBouncer
-        _pgbouncerPort = 6432; // Use the manually started server
-        
-        // Parse PostgreSQL container port from connection string
+        _pgbouncerPort = GetFreePort();
         var postgresPort = ParsePortFromConnectionString(_postgres.ConnectionString);
         
-        // Create configuration with transaction pooling
         var config = new PgBouncerConfig
         {
             ListenPort = _pgbouncerPort,
@@ -45,38 +49,41 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
             Pool = new PoolConfig
             {
                 Mode = PoolingMode.Transaction,
-                MaxSize = 5, // Limit to 5 backend connections
+                MaxSize = 5,
                 ConnectionTimeout = 30,
                 DefaultSize = 5
+            },
+            Auth = new AuthConfig
+            {
+                Type = "trust"
             }
         };
         
-        // Create pool manager with console logging for debugging
-        var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-        _poolManager = new PoolManager(config, loggerFactory.CreateLogger<PoolManager>());
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddSingleton(config);
+        builder.Services.AddSingleton<UserRegistry>();
+        builder.Services.AddSingleton(sp =>
+        {
+             var cfg = sp.GetRequiredService<PgBouncerConfig>();
+             var logger = sp.GetRequiredService<ILogger<PoolManager>>();
+             return new PoolManager(cfg, logger);
+        });
+        builder.Services.AddSingleton<ProxyServer>();
+        builder.Services.AddTransient<PgConnectionHandler>();
+        builder.Logging.ClearProviders();
         
-        // Create and start proxy server
-        _proxyServer = new ProxyServer(
-            config, 
-            _poolManager, 
-            loggerFactory.CreateLogger<ProxyServer>()
-        );
+        builder.WebHost.ConfigureKestrel(options =>
+        {
+            options.ListenAnyIP(_pgbouncerPort, l => l.UseConnectionHandler<PgConnectionHandler>());
+        });
         
-        _cts = new CancellationTokenSource();
-        await _proxyServer.StartAsync(_cts.Token);
+        _app = builder.Build();
+        await _app.StartAsync();
         
-        // Wait for server to be ready
+        _poolManager = _app.Services.GetRequiredService<PoolManager>();
+        
         await Task.Delay(2000);
         
-        // Pre-initialize pool with minimum connections to avoid timeout on first query
-        Console.WriteLine("Pre-initializing connection pool...");
-        var pool = await _poolManager.GetPoolAsync("testdb", "postgres", "testpass123");
-        await pool.InitializeAsync(3, _cts.Token);
-        Console.WriteLine("Pool initialized with 3 connections");
-        
-        Console.WriteLine($"PgBouncer started on port {_pgbouncerPort}, connecting to PostgreSQL on port {postgresPort}");
-        
-        // Verify PostgreSQL is accessible directly
         await using var conn = new NpgsqlConnection(_postgres.ConnectionString);
         await conn.OpenAsync();
         await using var cmd = new NpgsqlCommand("SELECT 1", conn);
@@ -86,18 +93,15 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
             throw new InvalidOperationException("PostgreSQL container is not responding");
         }
         
-        // Wait for pool to be fully ready
         await Task.Delay(1000);
     }
     
     [Fact]
     public async Task MultipleClients_ShouldShareBackendConnections()
     {
-        // Arrange
         const int clientCount = 20;
         var connString = $"Host=127.0.0.1;Port={_pgbouncerPort};Database=testdb;Username=postgres;Password=testpass123;Pooling=false";
         
-        // Act - Open many connections simultaneously
         var results = new List<int>();
         var tasks = Enumerable.Range(0, clientCount).Select(async i =>
         {
@@ -110,46 +114,34 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
         
         results = (await Task.WhenAll(tasks)).ToList();
         
-        // Assert
         results.Should().HaveCount(clientCount);
         results.Should().BeEquivalentTo(Enumerable.Range(0, clientCount));
         
-        // Get stats - verify max backends used was limited
         var stats = _poolManager!.GetAllStats().ToList();
         stats.Should().NotBeEmpty();
         
-        var totalActive = stats.Sum(s => s.ActiveConnections);
         var totalConnections = stats.Sum(s => s.TotalConnections);
-        
-        // We should have created at most 5 backend connections (MaxSize)
         totalConnections.Should().BeLessThanOrEqualTo(5);
     }
     
     [Fact]
     public async Task Transaction_ShouldKeepBackendAssigned()
     {
-        // Arrange
         var connString = $"Host=127.0.0.1;Port={_pgbouncerPort};Database=testdb;Username=postgres;Password=testpass123;Pooling=false";
         await using var conn = new NpgsqlConnection(connString);
         await conn.OpenAsync();
         
-        // Act - Start transaction
         await using var transaction = await conn.BeginTransactionAsync();
         await using var cmd = new NpgsqlCommand("SELECT 1", conn, transaction);
         var result = await cmd.ExecuteScalarAsync();
-        
-        // Assert - Query succeeded during transaction
         result.Should().Be(1);
         
-        // Execute another query within the same transaction
         await using var cmd2 = new NpgsqlCommand("SELECT 2", conn, transaction);
         var result2 = await cmd2.ExecuteScalarAsync();
         result2.Should().Be(2);
         
-        // Commit transaction
         await transaction.CommitAsync();
         
-        // After commit, should be able to execute more queries
         await using var cmd3 = new NpgsqlCommand("SELECT 3", conn);
         var result3 = await cmd3.ExecuteScalarAsync();
         result3.Should().Be(3);
@@ -158,12 +150,10 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task SimpleQuery_ThroughProxy_ShouldReturnCorrectResults()
     {
-        // Arrange
         var connString = $"Host=127.0.0.1;Port={_pgbouncerPort};Database=testdb;Username=postgres;Password=testpass123;Pooling=false";
         await using var conn = new NpgsqlConnection(connString);
         await conn.OpenAsync();
         
-        // Act & Assert - Multiple queries
         for (int i = 0; i < 10; i++)
         {
             await using var cmd = new NpgsqlCommand($"SELECT {i}", conn);
@@ -175,34 +165,19 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     [Fact]
     public async Task CurrentDatabase_ThroughProxy_ShouldMatchExpected()
     {
-        // Arrange
         var connString = $"Host=127.0.0.1;Port={_pgbouncerPort};Database=testdb;Username=postgres;Password=testpass123;Pooling=false";
         await using var conn = new NpgsqlConnection(connString);
         await conn.OpenAsync();
         
-        // Act
         await using var cmd = new NpgsqlCommand("SELECT current_database()", conn);
         var result = await cmd.ExecuteScalarAsync();
         
-        // Assert
         result.Should().Be("testdb");
     }
     
     public async Task DisposeAsync()
     {
-        if (_cts != null)
-        {
-            await _cts.CancelAsync();
-            _cts.Dispose();
-        }
-        
-        if (_proxyServer != null)
-        {
-            await _proxyServer.StopAsync();
-            _proxyServer.Dispose();
-        }
-        
-        _poolManager?.Dispose();
+        if (_app != null) await _app.StopAsync();
     }
     
     private static int GetFreePort()
@@ -216,7 +191,6 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
     
     private static int ParsePortFromConnectionString(string connString)
     {
-        // Parse port from "Host=localhost;Port=5432;..."
         var portPart = connString.Split(';').FirstOrDefault(s => s.Trim().StartsWith("Port=", StringComparison.OrdinalIgnoreCase));
         if (portPart != null)
         {
@@ -226,6 +200,6 @@ public class TransactionPoolingIntegrationTests : IAsyncLifetime
                 return port;
             }
         }
-        return 5432; // Default PostgreSQL port
+        return 5432;
     }
 }

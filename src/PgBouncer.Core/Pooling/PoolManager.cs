@@ -118,10 +118,7 @@ public class PoolManager : IDisposable
         
         _logger?.LogInformation("Warming up pool {PoolKey} with {MinConnections} connections...", poolKey, minConnections);
         
-        if (pool is ConnectionPool connectionPool)
-        {
-            await connectionPool.InitializeAsync(minConnections, cancellationToken);
-        }
+        await pool.InitializeAsync(minConnections, cancellationToken);
         
         _logger?.LogInformation("Pool {PoolKey} warmup complete", poolKey);
     }
@@ -133,7 +130,8 @@ public class PoolManager : IDisposable
     {
         _logger?.LogInformation("Создание нового пула для {Database}/{User}", database, username);
 
-        return new ConnectionPool(
+        // Use new ChannelConnectionPool
+        return new ChannelConnectionPool(
             database,
             username,
             password,
